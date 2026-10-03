@@ -60,7 +60,7 @@ fun SettingsScreen() {
                 value = backendUrl,
                 onValueChange = {
                     backendUrl = it
-                    SettingsStore.setBackendBaseUrl(it)
+                    SettingsStore.updateBackendBaseUrl(it)
                 },
                 label = { Text("https://ваш-адрес.например.trycloudflare.com") },
                 singleLine = true,
@@ -72,7 +72,7 @@ fun SettingsScreen() {
                 value = apiKey,
                 onValueChange = {
                     apiKey = it
-                    SettingsStore.setBackendApiKey(it)
+                    SettingsStore.updateBackendApiKey(it)
                 },
                 label = { Text("X-API-Key (необязательно)") },
                 singleLine = true,
@@ -95,7 +95,7 @@ fun SettingsScreen() {
                 value = rate,
                 onValueChange = {
                     rate = it
-                    SettingsStore.setSpeechRate(it)
+                    SettingsStore.updateSpeechRate(it)
                 },
                 valueRange = 0.5f..2.0f,
                 steps = 14,
@@ -115,7 +115,7 @@ fun SettingsScreen() {
                     checked = haptics,
                     onCheckedChange = {
                         haptics = it
-                        SettingsStore.setHapticsEnabled(it)
+                        SettingsStore.updateHapticsEnabled(it)
                     },
                     colors = SwitchDefaults.colors(checkedTrackColor = Theme.accent)
                 )
@@ -125,7 +125,7 @@ fun SettingsScreen() {
                     checked = highContrast,
                     onCheckedChange = {
                         highContrast = it
-                        SettingsStore.setHighContrast(it)
+                        SettingsStore.updateHighContrast(it)
                     },
                     colors = SwitchDefaults.colors(checkedTrackColor = Theme.accent)
                 )
