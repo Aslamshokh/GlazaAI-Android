@@ -2,6 +2,14 @@ package com.aslamshoh.glazaai.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -65,6 +73,7 @@ private fun routeFor(mode: RecognitionMode): String = when (mode) {
     else -> "capture/${mode.name}"
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GlazaTopBar(navController: NavHostController) {
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -85,16 +94,16 @@ private fun GlazaTopBar(navController: NavHostController) {
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Theme.background),
         actions = {
             if (route == ROUTE_HOME) {
-                androidx.compose.material3.IconButton(onClick = { navController.navigate(ROUTE_HISTORY) }) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.Filled.History,
+                IconButton(onClick = { navController.navigate(ROUTE_HISTORY) }) {
+                    Icon(
+                        Icons.Filled.History,
                         contentDescription = "История",
                         tint = Theme.textPrimary
                     )
                 }
-                androidx.compose.material3.IconButton(onClick = { navController.navigate(ROUTE_SETTINGS) }) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.Filled.Settings,
+                IconButton(onClick = { navController.navigate(ROUTE_SETTINGS) }) {
+                    Icon(
+                        Icons.Filled.Settings,
                         contentDescription = "Настройки",
                         tint = Theme.textPrimary
                     )
@@ -103,9 +112,9 @@ private fun GlazaTopBar(navController: NavHostController) {
         },
         navigationIcon = {
             if (route != ROUTE_HOME) {
-                androidx.compose.material3.IconButton(onClick = { navController.popBackStack() }) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Назад",
                         tint = Theme.textPrimary
                     )
