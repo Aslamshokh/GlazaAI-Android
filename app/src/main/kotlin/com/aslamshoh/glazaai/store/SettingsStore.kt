@@ -45,27 +45,30 @@ object SettingsStore {
         highContrast = prefs.getBoolean(KEY_HIGH_CONTRAST, false)
     }
 
-    fun setBackendBaseUrl(value: String) {
+    // Названы updateXxx, а не setXxx: при "private set" у var-свойства выше Kotlin всё равно
+    // генерирует JVM-метод setXxx(...) (просто private) — функция с тем же именем setXxx
+    // конфликтует с ним на уровне байткода ("Platform declaration clash").
+    fun updateBackendBaseUrl(value: String) {
         backendBaseUrl = value
         prefs.edit().putString(KEY_BACKEND_URL, value).apply()
     }
 
-    fun setBackendApiKey(value: String) {
+    fun updateBackendApiKey(value: String) {
         backendApiKey = value
         prefs.edit().putString(KEY_API_KEY, value).apply()
     }
 
-    fun setSpeechRate(value: Float) {
+    fun updateSpeechRate(value: Float) {
         speechRate = value
         prefs.edit().putFloat(KEY_SPEECH_RATE, value).apply()
     }
 
-    fun setHapticsEnabled(value: Boolean) {
+    fun updateHapticsEnabled(value: Boolean) {
         hapticsEnabled = value
         prefs.edit().putBoolean(KEY_HAPTICS, value).apply()
     }
 
-    fun setHighContrast(value: Boolean) {
+    fun updateHighContrast(value: Boolean) {
         highContrast = value
         prefs.edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
     }
