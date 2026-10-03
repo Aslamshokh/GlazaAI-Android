@@ -1,0 +1,39 @@
+name: Build debug APK
+
+# Запускается вручную (вкладка Actions → этот workflow → "Run workflow") или при пуше в main.
+# В отличие от iOS, здесь не нужен ни облачный Mac, ни Apple ID, ни отдельная программа для
+# подписи на компьютере — обычный ubuntu-раннер GitHub уже содержит Android SDK, а debug-сборка
+# подписывается автоматически временным отладочным ключом Android (действует ~30 лет, не 7 дней).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlazaAI-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Системная тема для окна Activity (статус-бар/фон до отрисовки Compose) — сама разметка
+         экранов целиком на Jetpack Compose, см. ui/Theme.kt. -->
+    <style name="Theme.GlazaAI" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/glaza_background</item>
+        <item name="android:statusBarColor">@color/glaza_background</item>
+        <item name="android:navigationBarColor">@color/glaza_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backend GLAZA AI обычно работает локально по обычному http:// (например,
+     http://192.168.1.66:8000) или через туннель — начиная с Android 9 система по умолчанию
+     блокирует нешифрованный http. Разрешаем его для всех адресов намеренно: адрес backend
+     задаёт сам пользователь в Настройках приложения, это его собственный self-hosted сервер,
+     а не сторонний сайт. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
