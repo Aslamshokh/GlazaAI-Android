@@ -27,10 +27,12 @@ sealed class ApiException(message: String) : Exception(message) {
  * адрес backend и общий X-API-Key (см. BACKEND_API_KEY в .env backend).
  */
 object ApiClient {
-    private val gson = Gson()
-    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+    // Не private: обращаются из public inline-функций execute()/post()/get() ниже — Kotlin
+    // запрещает public inline-функциям обращаться к private-членам (нарушение "public API inline").
+    val gson = Gson()
+    val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    private val client = OkHttpClient.Builder()
+    val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
