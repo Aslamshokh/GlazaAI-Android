@@ -2,6 +2,14 @@ package com.aslamshoh.glazaai.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -20,6 +28,7 @@ import com.aslamshoh.glazaai.model.RecognitionMode
 private const val ROUTE_HOME = "home"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_HISTORY = "history"
+private const val ROUTE_LIVE = "live"
 private const val ROUTE_CAPTURE = "capture/{mode}"
 private const val ROUTE_BARCODE = "barcode/{mode}"
 
@@ -46,6 +55,9 @@ fun GlazaNavHost() {
             }
             composable(ROUTE_SETTINGS) { SettingsScreen() }
             composable(ROUTE_HISTORY) { HistoryScreen() }
+            composable(ROUTE_LIVE) {
+                LiveScreen(onOpenPhoto = { navController.navigate("capture/${RecognitionMode.OBJECTS.name}") })
+            }
             composable(ROUTE_CAPTURE) { backStackEntry ->
                 val modeName = backStackEntry.arguments?.getString("mode") ?: RecognitionMode.OBJECTS.name
                 val mode = RecognitionMode.entries.firstOrNull { it.name == modeName } ?: RecognitionMode.OBJECTS
@@ -62,9 +74,11 @@ fun GlazaNavHost() {
 
 private fun routeFor(mode: RecognitionMode): String = when (mode) {
     RecognitionMode.BARCODE, RecognitionMode.QR -> "barcode/${mode.name}"
+    RecognitionMode.OBJECTS -> ROUTE_LIVE
     else -> "capture/${mode.name}"
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GlazaTopBar(navController: NavHostController) {
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -73,6 +87,7 @@ private fun GlazaTopBar(navController: NavHostController) {
         route == ROUTE_HOME -> "ИИ ГЛАЗ"
         route == ROUTE_SETTINGS -> "Настройки"
         route == ROUTE_HISTORY -> "История"
+        route == ROUTE_LIVE -> "Предметы · live"
         route.startsWith("capture") || route.startsWith("barcode") -> {
             val modeName = backStackEntry?.arguments?.getString("mode")
             RecognitionMode.entries.firstOrNull { it.name == modeName }?.title ?: "ИИ ГЛАЗ"
@@ -85,16 +100,16 @@ private fun GlazaTopBar(navController: NavHostController) {
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Theme.background),
         actions = {
             if (route == ROUTE_HOME) {
-                androidx.compose.material3.IconButton(onClick = { navController.navigate(ROUTE_HISTORY) }) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.Filled.History,
+                IconButton(onClick = { navController.navigate(ROUTE_HISTORY) }) {
+                    Icon(
+                        Icons.Filled.History,
                         contentDescription = "История",
                         tint = Theme.textPrimary
                     )
                 }
-                androidx.compose.material3.IconButton(onClick = { navController.navigate(ROUTE_SETTINGS) }) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.Filled.Settings,
+                IconButton(onClick = { navController.navigate(ROUTE_SETTINGS) }) {
+                    Icon(
+                        Icons.Filled.Settings,
                         contentDescription = "Настройки",
                         tint = Theme.textPrimary
                     )
@@ -103,9 +118,9 @@ private fun GlazaTopBar(navController: NavHostController) {
         },
         navigationIcon = {
             if (route != ROUTE_HOME) {
-                androidx.compose.material3.IconButton(onClick = { navController.popBackStack() }) {
-                    androidx.compose.material3.Icon(
-                        androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Назад",
                         tint = Theme.textPrimary
                     )

@@ -7,6 +7,11 @@ import java.net.URLEncoder
 object VisionService {
     suspend fun describeScene(imageDataUrl: String): SceneResult =
         ApiClient.post("/vision/describe-scene", ImageRequestBody(imageDataUrl))
+
+    /** Один кадр видеопотока для живого режима: backend ведёт трекинг объектов между кадрами
+     * (по sessionId) и возвращает направление, расстояние и приоритет каждого. */
+    suspend fun liveFrame(imageDataUrl: String, sessionId: String): LiveFrameResult =
+        ApiClient.post("/vision/live-frame", LiveFrameRequestBody(imageDataUrl, sessionId))
 }
 
 /** OCR API — распознавание печатного/рукописного текста. Используется и для «Текст», и для

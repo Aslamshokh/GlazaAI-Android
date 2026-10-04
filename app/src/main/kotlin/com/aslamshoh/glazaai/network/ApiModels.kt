@@ -15,6 +15,8 @@ data class ImageRequestBody(val image: String)
 
 data class OcrRequestBody(val image: String, val language: String)
 
+data class LiveFrameRequestBody(val image: String, val sessionId: String)
+
 data class FindObjectRequestBody(val image: String, val query: String)
 
 // ---------- Ответы backend ----------
@@ -97,6 +99,30 @@ data class BarcodeResult(
     val found: Boolean,
     val source: String,
     val timestamp: Long
+)
+
+/** Один найденный и отслеживаемый объект живого режима (POST /vision/live-frame). */
+data class LiveTrack(
+    val trackId: Int,
+    val label: String,
+    val labelEn: String,
+    val direction: String,
+    val distanceM: Double?,
+    val zone: String,
+    val approaching: Boolean,
+    val priority: String,
+    val isNew: Boolean,
+    val confidence: Double,
+    val box: List<Double>,
+    val trafficLightState: String?
+)
+
+data class LiveFrameResult(
+    val id: String,
+    val timestamp: Long,
+    val tracks: List<LiveTrack>?,
+    val qualityHint: String?,
+    val processingMs: Int
 )
 
 data class ErrorResponse(val detail: String)

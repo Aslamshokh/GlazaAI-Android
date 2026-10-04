@@ -49,6 +49,19 @@ object SpeechSynthesizer {
         engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "glazaai_${System.currentTimeMillis()}")
     }
 
+    /** Для живого режима: interrupt=true — прервать текущую речь (критическая опасность),
+     * false — дождаться окончания текущей фразы (QUEUE_ADD). */
+    fun speakQueued(text: String, rate: Float, interrupt: Boolean) {
+        val engine = tts ?: return
+        if (text.isBlank()) return
+        engine.setSpeechRate(rate)
+        val mode = if (interrupt) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+        val result = engine.speak(text, mode, null, "glazaai_live_${System.currentTimeMillis()}")
+        // Если синтезатор не принял фразу (например, ещё не готов), onStart/onError не придут —
+        // не оставляем isSpeaking «залипшим» в true, иначе живой режим замолчит насовсем.
+        isSpeaking = (result == TextToSpeech.SUCCESS)
+    }
+
     fun stop() {
         tts?.stop()
         isSpeaking = false
