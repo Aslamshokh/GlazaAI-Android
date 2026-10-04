@@ -1,6 +1,8 @@
 package com.aslamshoh.glazaai.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,12 +39,14 @@ import com.aslamshoh.glazaai.store.SettingsStore
 @Composable
 fun HomeScreen(
     onOpenMode: (RecognitionMode) -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenNavigation: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Theme.background)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
@@ -64,6 +68,8 @@ fun HomeScreen(
         }
 
         HeroSection(onStartCamera = { onOpenMode(RecognitionMode.OBJECTS) })
+
+        NavigationEntryCard(onClick = onOpenNavigation)
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(

@@ -29,6 +29,7 @@ private const val ROUTE_HOME = "home"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_HISTORY = "history"
 private const val ROUTE_LIVE = "live"
+private const val ROUTE_NAV = "navigation"
 private const val ROUTE_CAPTURE = "capture/{mode}"
 private const val ROUTE_BARCODE = "barcode/{mode}"
 
@@ -50,7 +51,8 @@ fun GlazaNavHost() {
             composable(ROUTE_HOME) {
                 HomeScreen(
                     onOpenMode = { mode -> navController.navigate(routeFor(mode)) },
-                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) }
+                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
+                    onOpenNavigation = { navController.navigate(ROUTE_NAV) }
                 )
             }
             composable(ROUTE_SETTINGS) { SettingsScreen() }
@@ -58,6 +60,7 @@ fun GlazaNavHost() {
             composable(ROUTE_LIVE) {
                 LiveScreen(onOpenPhoto = { navController.navigate("capture/${RecognitionMode.OBJECTS.name}") })
             }
+            composable(ROUTE_NAV) { NavigationScreen() }
             composable(ROUTE_CAPTURE) { backStackEntry ->
                 val modeName = backStackEntry.arguments?.getString("mode") ?: RecognitionMode.OBJECTS.name
                 val mode = RecognitionMode.entries.firstOrNull { it.name == modeName } ?: RecognitionMode.OBJECTS
@@ -88,6 +91,7 @@ private fun GlazaTopBar(navController: NavHostController) {
         route == ROUTE_SETTINGS -> "Настройки"
         route == ROUTE_HISTORY -> "История"
         route == ROUTE_LIVE -> "Предметы · live"
+        route == ROUTE_NAV -> "Навигация"
         route.startsWith("capture") || route.startsWith("barcode") -> {
             val modeName = backStackEntry?.arguments?.getString("mode")
             RecognitionMode.entries.firstOrNull { it.name == modeName }?.title ?: "ИИ ГЛАЗ"
