@@ -24,6 +24,7 @@ object SettingsStore {
     private const val KEY_SPEECH_RATE = "glazaai.speechRate"
     private const val KEY_HAPTICS = "glazaai.hapticsEnabled"
     private const val KEY_HIGH_CONTRAST = "glazaai.highContrast"
+    private const val KEY_APP_LANGUAGE = "glazaai.appLanguage"
 
     var backendBaseUrl by mutableStateOf("")
         private set
@@ -36,6 +37,10 @@ object SettingsStore {
     var highContrast by mutableStateOf(false)
         private set
 
+    /** Язык интерфейса распознавания: "ru" или "en" (влияет на язык OCR и направление перевода). */
+    var appLanguage by mutableStateOf("ru")
+        private set
+
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences("glazaai_settings", Context.MODE_PRIVATE)
         backendBaseUrl = prefs.getString(KEY_BACKEND_URL, "") ?: ""
@@ -43,6 +48,7 @@ object SettingsStore {
         speechRate = prefs.getFloat(KEY_SPEECH_RATE, 1.0f)
         hapticsEnabled = prefs.getBoolean(KEY_HAPTICS, true)
         highContrast = prefs.getBoolean(KEY_HIGH_CONTRAST, false)
+        appLanguage = prefs.getString(KEY_APP_LANGUAGE, "ru") ?: "ru"
     }
 
     // Названы updateXxx, а не setXxx: при "private set" у var-свойства выше Kotlin всё равно
@@ -71,6 +77,11 @@ object SettingsStore {
     fun updateHighContrast(value: Boolean) {
         highContrast = value
         prefs.edit().putBoolean(KEY_HIGH_CONTRAST, value).apply()
+    }
+
+    fun updateAppLanguage(value: String) {
+        appLanguage = value
+        prefs.edit().putString(KEY_APP_LANGUAGE, value).apply()
     }
 
     val isBackendConfigured: Boolean

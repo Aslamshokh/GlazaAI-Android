@@ -15,6 +15,8 @@ import java.util.Locale
  */
 object SpeechSynthesizer {
     private var tts: TextToSpeech? = null
+    private val russian = Locale("ru", "RU")
+    private var currentLocale: Locale = russian
 
     var isSpeaking by mutableStateOf(false)
         private set
@@ -42,9 +44,18 @@ object SpeechSynthesizer {
         tts = engine
     }
 
-    fun speak(text: String, rate: Float) {
+    /** Переключает язык синтезатора только при необходимости (английский текст — английским голосом). */
+    private fun applyLocale(engine: TextToSpeech, target: Locale) {
+        if (currentLocale != target) {
+            engine.language = target
+            currentLocale = target
+        }
+    }
+
+    fun speak(text: String, rate: Float, locale: Locale? = null) {
         val engine = tts ?: return
         if (text.isBlank()) return
+        applyLocale(engine, locale ?: russian)
         engine.setSpeechRate(rate)
         engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "glazaai_${System.currentTimeMillis()}")
     }
@@ -54,6 +65,7 @@ object SpeechSynthesizer {
     fun speakQueued(text: String, rate: Float, interrupt: Boolean) {
         val engine = tts ?: return
         if (text.isBlank()) return
+        applyLocale(engine, russian)
         engine.setSpeechRate(rate)
         val mode = if (interrupt) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
         val result = engine.speak(text, mode, null, "glazaai_live_${System.currentTimeMillis()}")

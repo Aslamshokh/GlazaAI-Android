@@ -82,5 +82,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
 
+
+    // Перевод Текст ⇄ Перевод (RU⇄EN): модели скачиваются один раз, дальше работают офлайн.
+    implementation("com.google.mlkit:translate:17.0.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }

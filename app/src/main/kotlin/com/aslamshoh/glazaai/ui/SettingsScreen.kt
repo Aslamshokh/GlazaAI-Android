@@ -9,6 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -40,7 +46,7 @@ import com.aslamshoh.glazaai.store.SettingsStore
 import kotlin.math.round
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onBack: () -> Unit = {}) {
     var backendUrl by remember { mutableStateOf(SettingsStore.backendBaseUrl) }
     var apiKey by remember { mutableStateOf(SettingsStore.backendApiKey) }
     var showClearConfirm by remember { mutableStateOf(false) }
@@ -49,13 +55,20 @@ fun SettingsScreen() {
         modifier = Modifier
             .fillMaxSize()
             .background(Theme.background)
+            .statusBarsPadding()
+            .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Text("Настройки", color = Theme.textPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад", tint = Theme.textPrimary)
+            }
+            Text("Настройки", color = Theme.textPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        }
 
-        SettingsSection(title = "Backend") {
+        SettingsSection(title = "Сервер (backend)") {
             OutlinedTextField(
                 value = backendUrl,
                 onValueChange = {

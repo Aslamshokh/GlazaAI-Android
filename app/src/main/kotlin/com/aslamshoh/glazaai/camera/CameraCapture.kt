@@ -35,6 +35,8 @@ class CameraCaptureController(
 ) {
     private var imageCapture: ImageCapture? = null
     private var provider: ProcessCameraProvider? = null
+    // Только свои use case: при смене экрана старый экран не должен отключать камеру нового.
+    private var useCases: Array<androidx.camera.core.UseCase> = emptyArray()
 
     var isReady by mutableStateOf(false)
         private set
@@ -61,6 +63,7 @@ class CameraCaptureController(
                     capture
                 )
                 provider = cameraProvider
+                useCases = arrayOf(preview, capture)
                 imageCapture = capture
                 isReady = true
                 errorMessage = null
@@ -71,7 +74,7 @@ class CameraCaptureController(
     }
 
     fun unbind() {
-        provider?.unbindAll()
+        if (useCases.isNotEmpty()) provider?.unbind(*useCases)
         isReady = false
     }
 

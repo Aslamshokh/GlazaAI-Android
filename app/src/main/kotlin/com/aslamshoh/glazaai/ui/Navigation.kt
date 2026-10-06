@@ -1,135 +1,168 @@
 package com.aslamshoh.glazaai.ui
 
+import android.net.Uri
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.runtime.getValue
-import com.aslamshoh.glazaai.model.RecognitionMode
+import androidx.navigation.navArgument
+import com.aslamshoh.glazaai.util.VoiceCommand
 
-private const val ROUTE_HOME = "home"
-private const val ROUTE_SETTINGS = "settings"
-private const val ROUTE_HISTORY = "history"
-private const val ROUTE_LIVE = "live"
-private const val ROUTE_NAV = "navigation"
-private const val ROUTE_CAPTURE = "capture/{mode}"
-private const val ROUTE_BARCODE = "barcode/{mode}"
+/** Какая вкладка нижнего меню подсвечена на этом маршруте. */
+private fun tabFor(route: String?): AppTab? = when {
+    route == null -> AppTab.HOME
+    route.startsWith(Routes.HOME) || route.startsWith(Routes.FIND) -> AppTab.HOME
+    route.startsWith(Routes.NAV) -> AppTab.NAV
+    route.startsWith("scan/") -> AppTab.SCAN
+    route == Routes.HISTORY -> AppTab.HISTORY
+    route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO -> AppTab.PROFILE
+    else -> null
+}
 
 @Composable
 fun GlazaNavHost() {
     val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val route = backStackEntry?.destination?.route
+    // На экране тарифов нижнего меню нет — как на макете.
+    val showBar = route != Routes.PRO
 
     Scaffold(
         containerColor = Theme.background,
-        topBar = { GlazaTopBar(navController) }
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            if (showBar) {
+                GlazaBottomBar(selected = tabFor(route)) { tab -> openTab(navController, tab) }
+            }
+        }
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = ROUTE_HOME,
-            modifier = Modifier.fillMaxSize().background(Theme.background).let {
-                it.padding(padding)
-            }
+            startDestination = Routes.HOME,
+            modifier = Modifier.fillMaxSize().background(Theme.background).padding(padding),
+            // Без анимации перехода: на экранах с камерой старый экран должен сразу отпустить камеру.
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None }
         ) {
-            composable(ROUTE_HOME) {
+            composable(Routes.HOME) {
                 HomeScreen(
-                    onOpenMode = { mode -> navController.navigate(routeFor(mode)) },
-                    onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
-                    onOpenNavigation = { navController.navigate(ROUTE_NAV) }
+                    onChip = { chip -> openChip(navController, chip) },
+                    onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onVoiceCommand = { command -> openVoiceCommand(navController, command) }
                 )
             }
-            composable(ROUTE_SETTINGS) { SettingsScreen() }
-            composable(ROUTE_HISTORY) { HistoryScreen() }
-            composable(ROUTE_LIVE) {
-                LiveScreen(onOpenPhoto = { navController.navigate("capture/${RecognitionMode.OBJECTS.name}") })
+            composable(
+                route = "${Routes.NAV}?dest={dest}",
+                arguments = listOf(navArgument("dest") { type = NavType.StringType; defaultValue = "" })
+            ) { entry ->
+                NavigationScreen(initialDestination = entry.arguments?.getString("dest").orEmpty())
             }
-            composable(ROUTE_NAV) { NavigationScreen() }
-            composable(ROUTE_CAPTURE) { backStackEntry ->
-                val modeName = backStackEntry.arguments?.getString("mode") ?: RecognitionMode.OBJECTS.name
-                val mode = RecognitionMode.entries.firstOrNull { it.name == modeName } ?: RecognitionMode.OBJECTS
-                CaptureScreen(initialMode = mode)
+            composable(Routes.BARCODE) {
+                BarcodeScreen(
+                    mode = ScanMode.PRODUCT,
+                    onSwitchMode = { openScanMode(navController, it) },
+                    onBack = { navController.popBackStack() }
+                )
             }
-            composable(ROUTE_BARCODE) { backStackEntry ->
-                val modeName = backStackEntry.arguments?.getString("mode") ?: RecognitionMode.BARCODE.name
-                val mode = RecognitionMode.entries.firstOrNull { it.name == modeName } ?: RecognitionMode.BARCODE
-                BarcodeScreen(mode = mode)
+            composable(Routes.QR) {
+                BarcodeScreen(
+                    mode = ScanMode.QR,
+                    onSwitchMode = { openScanMode(navController, it) },
+                    onBack = { navController.popBackStack() }
+                )
             }
+            composable(Routes.TEXT) {
+                TextScreen(
+                    onSwitchMode = { openScanMode(navController, it) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Routes.CURRENCY) {
+                CurrencyScreen(
+                    onSwitchMode = { openScanMode(navController, it) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "${Routes.FIND}?query={query}",
+                arguments = listOf(navArgument("query") { type = NavType.StringType; defaultValue = "" })
+            ) { entry ->
+                FindScreen(
+                    initialQuery = entry.arguments?.getString("query").orEmpty(),
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Routes.HISTORY) { HistoryScreen() }
+            composable(Routes.PROFILE) {
+                ProfileScreen(
+                    onOpenHistory = { openTab(navController, AppTab.HISTORY) },
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    onOpenOffline = { navController.navigate(Routes.OFFLINE) },
+                    onOpenPro = { navController.navigate(Routes.PRO) }
+                )
+            }
+            composable(Routes.SETTINGS) { SettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(Routes.OFFLINE) { OfflineModelsScreen(onBack = { navController.popBackStack() }) }
+            composable(Routes.PRO) { ProScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }
 
-private fun routeFor(mode: RecognitionMode): String = when (mode) {
-    RecognitionMode.BARCODE, RecognitionMode.QR -> "barcode/${mode.name}"
-    RecognitionMode.OBJECTS -> ROUTE_LIVE
-    else -> "capture/${mode.name}"
+private fun openTab(nav: NavHostController, tab: AppTab) {
+    if (tab == AppTab.HOME) {
+        // «Главная» — это начало стека: возвращаемся к нему, а не наслаиваем второй экземпляр.
+        if (!nav.popBackStack(Routes.HOME, false)) nav.navigate(Routes.HOME) { launchSingleTop = true }
+        return
+    }
+    nav.navigate(tab.route) {
+        popUpTo(Routes.HOME) { inclusive = false }
+        launchSingleTop = true
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun GlazaTopBar(navController: NavHostController) {
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val route = backStackEntry?.destination?.route ?: ROUTE_HOME
-    val title = when {
-        route == ROUTE_HOME -> "ИИ ГЛАЗ"
-        route == ROUTE_SETTINGS -> "Настройки"
-        route == ROUTE_HISTORY -> "История"
-        route == ROUTE_LIVE -> "Предметы · live"
-        route == ROUTE_NAV -> "Навигация"
-        route.startsWith("capture") || route.startsWith("barcode") -> {
-            val modeName = backStackEntry?.arguments?.getString("mode")
-            RecognitionMode.entries.firstOrNull { it.name == modeName }?.title ?: "ИИ ГЛАЗ"
-        }
-        else -> "ИИ ГЛАЗ"
+private fun openChip(nav: NavHostController, chip: HomeChip) {
+    when (chip) {
+        HomeChip.OBJECTS -> Unit
+        HomeChip.TEXT -> nav.navigate(Routes.TEXT) { launchSingleTop = true }
+        HomeChip.PRODUCT -> nav.navigate(Routes.BARCODE) { launchSingleTop = true }
+        HomeChip.CURRENCY -> nav.navigate(Routes.CURRENCY) { launchSingleTop = true }
+        HomeChip.FIND -> nav.navigate(Routes.FIND) { launchSingleTop = true }
     }
+}
 
-    TopAppBar(
-        title = { Text(title, color = Theme.textPrimary) },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Theme.background),
-        actions = {
-            if (route == ROUTE_HOME) {
-                IconButton(onClick = { navController.navigate(ROUTE_HISTORY) }) {
-                    Icon(
-                        Icons.Filled.History,
-                        contentDescription = "История",
-                        tint = Theme.textPrimary
-                    )
-                }
-                IconButton(onClick = { navController.navigate(ROUTE_SETTINGS) }) {
-                    Icon(
-                        Icons.Filled.Settings,
-                        contentDescription = "Настройки",
-                        tint = Theme.textPrimary
-                    )
-                }
-            }
-        },
-        navigationIcon = {
-            if (route != ROUTE_HOME) {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Назад",
-                        tint = Theme.textPrimary
-                    )
-                }
-            }
+private fun openScanMode(nav: NavHostController, mode: ScanMode) {
+    nav.navigate(mode.route) {
+        popUpTo(Routes.HOME) { inclusive = false }
+        launchSingleTop = true
+    }
+}
+
+private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
+    when (command) {
+        is VoiceCommand.Find -> nav.navigate("${Routes.FIND}?query=${Uri.encode(command.query)}") { launchSingleTop = true }
+        is VoiceCommand.Navigate -> nav.navigate("${Routes.NAV}?dest=${Uri.encode(command.destination.orEmpty())}") {
+            popUpTo(Routes.HOME) { inclusive = false }
+            launchSingleTop = true
         }
-    )
+        VoiceCommand.ReadText -> nav.navigate(Routes.TEXT) { launchSingleTop = true }
+        VoiceCommand.Currency -> nav.navigate(Routes.CURRENCY) { launchSingleTop = true }
+        VoiceCommand.Product -> nav.navigate(Routes.BARCODE) { launchSingleTop = true }
+        VoiceCommand.Qr -> nav.navigate(Routes.QR) { launchSingleTop = true }
+        VoiceCommand.History -> openTab(nav, AppTab.HISTORY)
+        VoiceCommand.WhatsAround, VoiceCommand.Unknown -> Unit
+    }
 }

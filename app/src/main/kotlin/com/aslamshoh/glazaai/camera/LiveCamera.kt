@@ -37,6 +37,8 @@ class LiveCameraController(
     private val lifecycleOwner: LifecycleOwner
 ) {
     private var provider: ProcessCameraProvider? = null
+    // Только свои use case: при смене экрана старый экран не должен отключать камеру нового.
+    private var useCases: Array<androidx.camera.core.UseCase> = emptyArray()
     private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     @Volatile
@@ -72,6 +74,7 @@ class LiveCameraController(
                     analysis
                 )
                 provider = cameraProvider
+                useCases = arrayOf(preview, analysis)
                 isReady = true
                 errorMessage = null
             } catch (e: Exception) {
@@ -83,7 +86,7 @@ class LiveCameraController(
     /** Останавливает камеру и фоновый поток анализа — вызывается при уходе с экрана. */
     fun release() {
         frameListener = null
-        provider?.unbindAll()
+        if (useCases.isNotEmpty()) provider?.unbind(*useCases)
         isReady = false
         analysisExecutor.shutdown()
     }

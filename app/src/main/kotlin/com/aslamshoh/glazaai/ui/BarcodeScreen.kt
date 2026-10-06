@@ -1,24 +1,28 @@
 package com.aslamshoh.glazaai.ui
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import android.view.View
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,72 +35,70 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
-import com.aslamshoh.glazaai.model.RecognitionMode
 import com.aslamshoh.glazaai.network.ApiClient
 import com.aslamshoh.glazaai.network.BarcodeResult
 import com.aslamshoh.glazaai.network.BarcodeService
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.HistoryStore
 import com.aslamshoh.glazaai.store.SettingsStore
+import com.aslamshoh.glazaai.util.RemoteImages
 import com.google.zxing.BarcodeFormat
 import com.journeyapps.barcodescanner.BarcodeCallback
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Отдельный экран для штрих-кодов и QR — сканирование непрерывное (ZXing), а не "сделайте
- * один снимок", поэтому экран устроен иначе, чем CaptureScreen. Зеркалит
- * GlazaAI-iOS/GlazaAI/Views/BarcodeScanView.swift.
+ * Экран 4 макета — «Сканер товара» (и QR-коды): камера непрерывно ищет штрих-код (ZXing на
+ * устройстве), по найденному коду backend берёт данные товара из Open Food Facts. Результат —
+ * карточка товара: фото, название, бренд, страна, состав, пищевая ценность.
+ * Срок годности здесь не показываем сознательно: в каталоге товаров его нет, он напечатан на
+ * конкретной упаковке (его читает вкладка «Текст»).
  */
 @Composable
-fun BarcodeScreen(mode: RecognitionMode) {
+fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+    val hasCamera = rememberCameraPermission()
 
-    var hasCameraPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        )
-    }
     var isLookingUp by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var barcodeResult by remember { mutableStateOf<BarcodeResult?>(null) }
+    var product by remember { mutableStateOf<BarcodeResult?>(null) }
+    var productImage by remember { mutableStateOf<Bitmap?>(null) }
+    var expanded by remember { mutableStateOf(false) }
     var qrText by remember { mutableStateOf<String?>(null) }
     var scannerView by remember { mutableStateOf<DecoratedBarcodeView?>(null) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted -> hasCameraPermission = granted }
-
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-    }
-
     fun handleScan(value: String, format: BarcodeFormat) {
-        // QR обрабатывается одинаково независимо от текущей вкладки (Штрих-коды/QR-коды) —
-        // это просто текст, а не товарный код для Open Food Facts.
+        // QR — это просто текст, а не товарный код для Open Food Facts.
         if (format == BarcodeFormat.QR_CODE) {
             qrText = value
             SpeechSynthesizer.speak(value, SettingsStore.speechRate)
             HistoryStore.addEntry("QR-код", "QR-код распознан", value)
             return
         }
-
         isLookingUp = true
         errorMessage = null
         scope.launch {
             try {
                 val result = BarcodeService.lookup(value)
-                barcodeResult = result
-                HistoryStore.addEntry("Сканирование товара", result.title, result.description)
+                val image = RemoteImages.load(result.imageUrl)
+                product = result
+                productImage = image
+                expanded = false
+                HistoryStore.addEntry("Товар", result.productName ?: result.title, result.description, image)
                 SpeechSynthesizer.speak(result.description, SettingsStore.speechRate)
             } catch (e: Exception) {
                 errorMessage = ApiClient.messageFor(e)
@@ -108,10 +110,20 @@ fun BarcodeScreen(mode: RecognitionMode) {
     }
 
     fun reset() {
-        barcodeResult = null
+        product = null
+        productImage = null
         qrText = null
         errorMessage = null
+        expanded = false
+        SpeechSynthesizer.stop()
         scannerView?.resume()
+    }
+
+    LaunchedEffect(scannerView) {
+        if (scannerView != null) {
+            delay(600)
+            scannerView?.resume()
+        }
     }
 
     DisposableEffect(Unit) {
@@ -121,138 +133,211 @@ fun BarcodeScreen(mode: RecognitionMode) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Theme.background)) {
-        Box(modifier = Modifier.weight(1f)) {
-            if (hasCameraPermission) {
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { ctx ->
-                        DecoratedBarcodeView(ctx).apply {
-                            decodeContinuous(object : BarcodeCallback {
-                                override fun barcodeResult(result: com.journeyapps.barcodescanner.BarcodeResult) {
-                                    if (barcodeResult != null || qrText != null) return
-                                    handleScan(result.text, result.barcodeFormat)
-                                }
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        if (hasCamera) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    DecoratedBarcodeView(ctx).apply {
+                        // Свою «прицельную» рамку рисуем сами (как на макете) — стандартную прячем.
+                        viewFinder.visibility = View.GONE
+                        statusView.visibility = View.GONE
+                        decodeContinuous(object : BarcodeCallback {
+                            override fun barcodeResult(result: com.journeyapps.barcodescanner.BarcodeResult) {
+                                if (product != null || qrText != null || isLookingUp) return
+                                handleScan(result.text, result.barcodeFormat)
+                            }
 
-                                override fun possibleResultPoints(resultPoints: MutableList<com.google.zxing.ResultPoint>) {}
-                            })
-                            resume()
-                            scannerView = this
-                        }
+                            override fun possibleResultPoints(resultPoints: MutableList<com.google.zxing.ResultPoint>) {}
+                        })
+                        // resume() — не здесь, а чуть позже (см. LaunchedEffect ниже): предыдущий экран
+                        // с камерой должен успеть её отпустить, иначе сканер откроется чёрным.
+                        scannerView = this
                     }
+                }
+            )
+            if (product == null && qrText == null) {
+                BracketFrame(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(if (mode == ScanMode.QR) 0.62f else 0.84f)
+                        .aspectRatio(if (mode == ScanMode.QR) 1f else 1.8f),
+                    color = Theme.accent
                 )
-            } else {
-                CenteredHint(text = "Нужен доступ к камере. Разрешите доступ в системном диалоге.")
             }
-
-            if (hasCameraPermission && isLookingUp) {
-                Box(
-                    modifier = Modifier.align(Alignment.Center)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                        .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
-                        .padding(16.dp)
-                ) {
-                    CircularProgressIndicator(color = androidx.compose.ui.graphics.Color.White)
-                }
-            } else if (hasCameraPermission && barcodeResult == null && qrText == null) {
-                Box(
-                    modifier = Modifier.align(Alignment.Center)
-                        .clip(CircleShape)
-                        .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        if (mode == RecognitionMode.QR) "Наведите камеру на QR-код" else "Наведите камеру на штрих-код",
-                        color = androidx.compose.ui.graphics.Color.White,
-                        fontSize = 14.sp
-                    )
-                }
-            }
+        } else {
+            CameraHint(text = "Нужен доступ к камере. Разрешите доступ в системном диалоге.")
         }
 
+        // верх: заголовок и переключатель режимов
+        Column(
+            modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CameraTopBar(title = "Сканер", onBack = onBack)
+            ScanModeSwitch(selected = mode, onSelect = onSwitchMode)
+        }
+
+        // подсказка / индикатор загрузки
+        if (hasCamera && isLookingUp) {
+            CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center))
+        } else if (hasCamera && product == null && qrText == null) {
+            Text(
+                if (mode == ScanMode.QR) "Наведите камеру на QR-код" else "Наведите камеру на штрих-код",
+                color = Color.White,
+                fontSize = 14.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+                    .background(Color(0x990A1020), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
+
+        // низ: результат
         Column(
             modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Theme.background)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .heightIn(max = 470.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             errorMessage?.let { ErrorBanner(it) }
 
             qrText?.let { text ->
-                Box(modifier = Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
-                    ResultCard(
-                        title = "QR-код распознан",
-                        description = text,
-                        badge = if (isUrl(text)) "Ссылка" else null,
-                        badgeColor = Theme.accent,
-                        isSpeaking = SpeechSynthesizer.isSpeaking,
-                        onSpeak = { SpeechSynthesizer.speak(text, SettingsStore.speechRate) },
-                        onStop = { SpeechSynthesizer.stop() }
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (isUrl(text)) {
-                        PillButton(label = "Открыть ссылку", filled = true) {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(text))
-                            context.startActivity(intent)
+                val isUrl = text.startsWith("http://", ignoreCase = true) || text.startsWith("https://", ignoreCase = true)
+                GlassSheet {
+                    Text("QR-код распознан", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(text, color = Theme.textPrimary.copy(alpha = 0.9f), fontSize = 15.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        ActionButton("Озвучить", icon = Icons.Filled.VolumeUp, filled = true, modifier = Modifier.weight(1f)) {
+                            SpeechSynthesizer.speak(text, SettingsStore.speechRate)
+                        }
+                        if (isUrl) {
+                            ActionButton("Открыть", icon = Icons.Filled.OpenInBrowser, modifier = Modifier.weight(1f)) {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(text)))
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Не удалось открыть ссылку", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } else {
+                            ActionButton("Копировать", icon = Icons.Filled.ContentCopy, modifier = Modifier.weight(1f)) {
+                                clipboard.setText(AnnotatedString(text))
+                                Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
-                    PillButton(label = "Сканировать снова", filled = false) { reset() }
+                    ActionButton("Сканировать снова", modifier = Modifier.fillMaxWidth()) { reset() }
                 }
             }
 
-            barcodeResult?.let { result ->
-                Box(modifier = Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
-                    ResultCard(
-                        title = result.title,
-                        description = result.description,
-                        badge = if (result.found) "Найден" else "Не найден",
-                        badgeColor = if (result.found) Theme.success else Theme.warning,
-                        extraChips = barcodeChips(result),
-                        isSpeaking = SpeechSynthesizer.isSpeaking,
-                        onSpeak = { SpeechSynthesizer.speak(result.description, SettingsStore.speechRate) },
-                        onStop = { SpeechSynthesizer.stop() }
-                    )
-                }
-                PillButton(label = "Сканировать снова", filled = false) { reset() }
+            product?.let { result ->
+                ProductCard(
+                    result = result,
+                    image = productImage,
+                    expanded = expanded,
+                    onToggleExpanded = { expanded = !expanded },
+                    onSpeak = { SpeechSynthesizer.speak(result.description, SettingsStore.speechRate) },
+                    onSimilar = {
+                        val name = result.productName ?: result.title
+                        val url = "https://www.google.com/search?q=" + Uri.encode("аналоги $name")
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Не удалось открыть браузер", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onAgain = { reset() }
+                )
             }
         }
     }
 }
 
-private fun barcodeChips(result: BarcodeResult): List<String> {
-    val chips = mutableListOf<String>()
-    result.brand?.let { chips.add(it) }
-    result.quantity?.let { chips.add(it) }
-    result.nutriScore?.let { chips.add("Nutri-Score: $it") }
-    return chips
-}
-
-private fun isUrl(text: String): Boolean =
-    text.lowercase().startsWith("http://") || text.lowercase().startsWith("https://")
-
 @Composable
-private fun CenteredHint(text: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, color = Theme.textSecondary, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 24.dp))
+private fun ProductCard(
+    result: BarcodeResult,
+    image: Bitmap?,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onSpeak: () -> Unit,
+    onSimilar: () -> Unit,
+    onAgain: () -> Unit
+) {
+    GlassSheet {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            BitmapThumb(bitmap = image, size = 64.dp, fallback = Icons.Outlined.ShoppingBag)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    result.productName ?: result.title,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2
+                )
+                val sub = result.quantity ?: if (result.found) null else "Код: ${result.code}"
+                if (sub != null) Text(sub, color = Theme.textSecondary, fontSize = 14.sp)
+            }
+            CircleButton(
+                icon = Icons.Filled.VolumeUp,
+                description = "Озвучить описание товара",
+                onClick = onSpeak,
+                size = 48.dp,
+                iconSize = 22.dp,
+                container = Theme.accentSoft,
+                tint = Theme.accent
+            )
+        }
+
+        if (!result.found) {
+            Text(
+                "Этого товара нет в базе Open Food Facts. База лучше всего знает продукты питания.",
+                color = Theme.textSecondary,
+                fontSize = 14.sp
+            )
+        } else {
+            LabeledLine("Бренд", result.brand)
+            LabeledLine("Страна", result.country)
+            LabeledLine("Состав", result.ingredients, maxLines = if (expanded) Int.MAX_VALUE else 2)
+            LabeledLine("Пищевая ценность (на 100 г)", result.nutrition)
+            if (expanded) {
+                LabeledLine("Аллергены", result.allergens)
+                LabeledLine("Nutri-Score", result.nutriScore)
+                LabeledLine("Штрих-код", result.code)
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            ActionButton(
+                if (expanded) "Свернуть" else "Подробнее",
+                modifier = Modifier.weight(1f),
+                onClick = onToggleExpanded
+            )
+            ActionButton(
+                "Найти похожее",
+                icon = Icons.Outlined.Search,
+                modifier = Modifier.weight(1f),
+                onClick = onSimilar
+            )
+        }
+        ActionButton("Сканировать снова", modifier = Modifier.fillMaxWidth(), onClick = onAgain)
     }
 }
 
+/** «Бренд: Milka» — подпись жирным, значение обычным; пустые значения не показываем. */
 @Composable
-private fun PillButton(label: String, filled: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(if (filled) Theme.accent else Theme.surfaceAlt)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp)
-    ) {
-        Text(
-            label,
-            color = if (filled) androidx.compose.ui.graphics.Color.White else Theme.textPrimary,
-            fontSize = 14.sp
-        )
-    }
+private fun LabeledLine(label: String, value: String?, maxLines: Int = Int.MAX_VALUE) {
+    if (value.isNullOrBlank()) return
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("$label: ") }
+            append(value)
+        },
+        color = Theme.textPrimary.copy(alpha = 0.92f),
+        fontSize = 14.sp,
+        maxLines = maxLines
+    )
 }

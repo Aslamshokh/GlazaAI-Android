@@ -96,6 +96,10 @@ data class BarcodeResult(
     val ingredients: String?,
     val allergens: String?,
     val nutriScore: String?,
+    /** Страна, пищевая ценность на 100 г и фото товара — приходят от обновлённого backend (необязательно). */
+    val country: String? = null,
+    val nutrition: String? = null,
+    val imageUrl: String? = null,
     val found: Boolean,
     val source: String,
     val timestamp: Long
