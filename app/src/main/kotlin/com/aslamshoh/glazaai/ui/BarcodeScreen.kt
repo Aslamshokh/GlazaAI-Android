@@ -241,9 +241,11 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
                     expanded = expanded,
                     onToggleExpanded = { expanded = !expanded },
                     onSpeak = { SpeechSynthesizer.speak(result.description, SettingsStore.speechRate) },
+                    onReadLabel = { onSwitchMode(ScanMode.TEXT) },
                     onSimilar = {
-                        val name = result.productName ?: result.title
-                        val url = "https://www.google.com/search?q=" + Uri.encode("аналоги $name")
+                        // Для найденного товара ищем аналоги, для неизвестного — сам штрихкод в интернете.
+                        val query = if (result.found) "аналоги " + (result.productName ?: result.title) else "штрихкод ${result.code}"
+                        val url = "https://www.google.com/search?q=" + Uri.encode(query)
                         try {
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         } catch (e: Exception) {
@@ -265,6 +267,7 @@ private fun ProductCard(
     onToggleExpanded: () -> Unit,
     onSpeak: () -> Unit,
     onSimilar: () -> Unit,
+    onReadLabel: () -> Unit,
     onAgain: () -> Unit
 ) {
     GlassSheet {
@@ -293,11 +296,8 @@ private fun ProductCard(
         }
 
         if (!result.found) {
-            Text(
-                "Этого товара нет в базе Open Food Facts. База лучше всего знает продукты питания.",
-                color = Theme.textSecondary,
-                fontSize = 14.sp
-            )
+            Text(result.description, color = Theme.textSecondary, fontSize = 14.sp)
+            LabeledLine("Страна", result.country)
         } else {
             LabeledLine("Бренд", result.brand)
             LabeledLine("Страна", result.country)
@@ -311,13 +311,17 @@ private fun ProductCard(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            if (result.found) {
+                ActionButton(
+                    if (expanded) "Свернуть" else "Подробнее",
+                    modifier = Modifier.weight(1f),
+                    onClick = onToggleExpanded
+                )
+            } else {
+                ActionButton("Прочитать надпись", modifier = Modifier.weight(1f), onClick = onReadLabel)
+            }
             ActionButton(
-                if (expanded) "Свернуть" else "Подробнее",
-                modifier = Modifier.weight(1f),
-                onClick = onToggleExpanded
-            )
-            ActionButton(
-                "Найти похожее",
+                if (result.found) "Найти похожее" else "Найти в интернете",
                 icon = Icons.Outlined.Search,
                 modifier = Modifier.weight(1f),
                 onClick = onSimilar
