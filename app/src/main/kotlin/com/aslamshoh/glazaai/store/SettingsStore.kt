@@ -25,6 +25,8 @@ object SettingsStore {
     private const val KEY_HAPTICS = "glazaai.hapticsEnabled"
     private const val KEY_HIGH_CONTRAST = "glazaai.highContrast"
     private const val KEY_APP_LANGUAGE = "glazaai.appLanguage"
+    private const val KEY_NEURAL_VOICE = "glazaai.neuralVoice"
+    private const val KEY_VOICE_GENDER = "glazaai.voiceGender"
 
     var backendBaseUrl by mutableStateOf("")
         private set
@@ -41,6 +43,15 @@ object SettingsStore {
     var appLanguage by mutableStateOf("ru")
         private set
 
+    /** Естественный голос: озвучку делает backend (нейроголоса), телефон только проигрывает.
+     * Если backend недоступен — само переключается на встроенный голос телефона. */
+    var neuralVoice by mutableStateOf(true)
+        private set
+
+    /** "female" (Светлана) или "male" (Дмитрий) — для естественного голоса. */
+    var voiceGender by mutableStateOf("female")
+        private set
+
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences("glazaai_settings", Context.MODE_PRIVATE)
         backendBaseUrl = prefs.getString(KEY_BACKEND_URL, "") ?: ""
@@ -49,6 +60,8 @@ object SettingsStore {
         hapticsEnabled = prefs.getBoolean(KEY_HAPTICS, true)
         highContrast = prefs.getBoolean(KEY_HIGH_CONTRAST, false)
         appLanguage = prefs.getString(KEY_APP_LANGUAGE, "ru") ?: "ru"
+        neuralVoice = prefs.getBoolean(KEY_NEURAL_VOICE, true)
+        voiceGender = prefs.getString(KEY_VOICE_GENDER, "female") ?: "female"
     }
 
     // Названы updateXxx, а не setXxx: при "private set" у var-свойства выше Kotlin всё равно
@@ -82,6 +95,16 @@ object SettingsStore {
     fun updateAppLanguage(value: String) {
         appLanguage = value
         prefs.edit().putString(KEY_APP_LANGUAGE, value).apply()
+    }
+
+    fun updateNeuralVoice(value: Boolean) {
+        neuralVoice = value
+        prefs.edit().putBoolean(KEY_NEURAL_VOICE, value).apply()
+    }
+
+    fun updateVoiceGender(value: String) {
+        voiceGender = value
+        prefs.edit().putString(KEY_VOICE_GENDER, value).apply()
     }
 
     val isBackendConfigured: Boolean

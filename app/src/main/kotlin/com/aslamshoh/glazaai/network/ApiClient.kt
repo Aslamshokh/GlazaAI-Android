@@ -104,6 +104,27 @@ object ApiClient {
         execute<T>(request)
     }
 
+    /** Для бинарных ответов (например mp3 озвучки): короткий общий таймаут — голос должен
+     * появиться быстро, иначе приложение вернётся к встроенному голосу телефона. */
+    suspend fun postForBytes(path: String, body: Any, timeoutSeconds: Long = 12): ByteArray =
+        withContext(Dispatchers.IO) {
+            val request = newRequestBuilder(path).post(gson.toJson(body).toRequestBody(jsonMediaType)).build()
+            val shortClient = client.newBuilder().callTimeout(timeoutSeconds, TimeUnit.SECONDS).build()
+            val response = try {
+                shortClient.newCall(request).execute()
+            } catch (e: IOException) {
+                throw ApiException.Network
+            }
+            response.use { resp ->
+                if (!resp.isSuccessful) throw ApiException.Server(resp.code, "Ошибка сервера: ${resp.code}")
+                try {
+                    resp.body?.bytes() ?: throw ApiException.Decoding
+                } catch (e: IOException) {
+                    throw ApiException.Network
+                }
+            }
+        }
+
     /** Текст ошибки для показа пользователю и озвучивания — единая точка форматирования. */
     fun messageFor(error: Throwable): String = when (error) {
         is ApiException -> error.message ?: "Неизвестная ошибка."

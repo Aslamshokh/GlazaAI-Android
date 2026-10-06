@@ -200,7 +200,7 @@ fun ProfileScreen(
             ProfileRow(
                 Icons.Outlined.RecordVoiceOver,
                 "Голос",
-                "Скорость ${roundTo1(SettingsStore.speechRate)}×",
+                (if (SettingsStore.neuralVoice) "Естественный · " else "Встроенный · ") + "скорость ${roundTo1(SettingsStore.speechRate)}×",
                 onClick = { showVoice = true }
             )
             HorizontalDivider(color = Theme.divider)
@@ -278,11 +278,44 @@ fun ProfileScreen(
                         steps = 14,
                         colors = SliderDefaults.colors(thumbColor = Theme.accent, activeTrackColor = Theme.accent)
                     )
-                    Text(
-                        "Сам голос (мужской или женский) выбирается в настройках Android: «Синтез речи».",
-                        color = Theme.textSecondary,
-                        fontSize = 12.sp
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Естественный голос", color = Color.White, fontSize = 15.sp)
+                            Text(
+                                "Озвучку делает backend на ноутбуке, нужен интернет. Без связи говорит встроенный голос телефона.",
+                                color = Theme.textSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Switch(
+                            checked = SettingsStore.neuralVoice,
+                            onCheckedChange = { SettingsStore.updateNeuralVoice(it) },
+                            colors = SwitchDefaults.colors(checkedTrackColor = Theme.accent)
+                        )
+                    }
+                    if (SettingsStore.neuralVoice) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            ActionButton(
+                                "Женский",
+                                filled = SettingsStore.voiceGender == "female",
+                                modifier = Modifier.weight(1f)
+                            ) { SettingsStore.updateVoiceGender("female") }
+                            ActionButton(
+                                "Мужской",
+                                filled = SettingsStore.voiceGender == "male",
+                                modifier = Modifier.weight(1f)
+                            ) { SettingsStore.updateVoiceGender("male") }
+                        }
+                    } else {
+                        Text(
+                            "Встроенный голос (мужской или женский) выбирается в настройках Android: «Синтез речи».",
+                            color = Theme.textSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             },
             confirmButton = {
