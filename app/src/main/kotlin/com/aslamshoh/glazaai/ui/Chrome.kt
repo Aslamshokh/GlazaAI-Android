@@ -95,6 +95,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val PRO = "pro"
     const val OFFLINE = "offline"
+    const val MEMORY = "memory"
 }
 
 /** Пять вкладок нижнего меню. */

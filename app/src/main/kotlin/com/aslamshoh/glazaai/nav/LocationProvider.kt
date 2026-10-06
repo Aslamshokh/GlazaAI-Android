@@ -25,6 +25,11 @@ class LocationProvider(context: Context) {
     var accuracyM by mutableStateOf<Float?>(null)
         private set
 
+    /** Когда (по часам телефона, мс) был сделан последний замер — чтобы отличать свежее положение
+     *  от устаревшего «последнего известного». */
+    var fixTimeMs: Long = 0L
+        private set
+
     /** Вызывается на главном потоке на каждый новый замер. */
     var listener: ((NavPoint, Float) -> Unit)? = null
 
@@ -60,6 +65,7 @@ class LocationProvider(context: Context) {
         val acc = if (location.hasAccuracy()) location.accuracy else 50f
         point = p
         accuracyM = acc
+        fixTimeMs = if (location.time > 0L) location.time else System.currentTimeMillis()
         listener?.invoke(p, acc)
     }
 

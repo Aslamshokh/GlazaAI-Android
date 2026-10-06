@@ -27,7 +27,7 @@ private fun tabFor(route: String?): AppTab? = when {
     route.startsWith(Routes.NAV) -> AppTab.NAV
     route.startsWith("scan/") -> AppTab.SCAN
     route == Routes.HISTORY -> AppTab.HISTORY
-    route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO -> AppTab.PROFILE
+    route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO || route == Routes.MEMORY -> AppTab.PROFILE
     else -> null
 }
 
@@ -112,10 +112,12 @@ fun GlazaNavHost() {
                     onOpenHistory = { openTab(navController, AppTab.HISTORY) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenOffline = { navController.navigate(Routes.OFFLINE) },
+                    onOpenMemory = { navController.navigate(Routes.MEMORY) },
                     onOpenPro = { navController.navigate(Routes.PRO) }
                 )
             }
             composable(Routes.SETTINGS) { SettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(Routes.MEMORY) { MemoryScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.OFFLINE) { OfflineModelsScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.PRO) { ProScreen(onBack = { navController.popBackStack() }) }
         }
@@ -164,5 +166,9 @@ private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
         VoiceCommand.Qr -> nav.navigate(Routes.QR) { launchSingleTop = true }
         VoiceCommand.History -> openTab(nav, AppTab.HISTORY)
         VoiceCommand.WhatsAround, VoiceCommand.Unknown -> Unit
+        // Память вещей обрабатывает главный экран сам (ему нужен кадр камеры); сюда доходит
+        // только запасной вариант «где X», когда X не запомнен, — это обычный поиск камерой.
+        is VoiceCommand.Recall -> nav.navigate("${Routes.FIND}?query=${Uri.encode(command.item)}") { launchSingleTop = true }
+        is VoiceCommand.Remember, is VoiceCommand.Forget, VoiceCommand.MemoryList -> nav.navigate(Routes.MEMORY) { launchSingleTop = true }
     }
 }

@@ -1,6 +1,7 @@
 package com.aslamshoh.glazaai.nav
 
 import kotlin.math.asin
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -18,6 +19,16 @@ object NavGeo {
         val dl = Math.toRadians(b.lon - a.lon)
         val h = sin(dphi / 2) * sin(dphi / 2) + cos(p1) * cos(p2) * sin(dl / 2) * sin(dl / 2)
         return 2 * EARTH_R * asin(min(1.0, sqrt(h)))
+    }
+
+    /** Азимут от точки a к точке b: 0° — север, 90° — восток (для подсказки «где это место»). */
+    fun bearingDeg(a: NavPoint, b: NavPoint): Double {
+        val p1 = Math.toRadians(a.lat)
+        val p2 = Math.toRadians(b.lat)
+        val dl = Math.toRadians(b.lon - a.lon)
+        val y = sin(dl) * cos(p2)
+        val x = cos(p1) * sin(p2) - sin(p1) * cos(p2) * cos(dl)
+        return (Math.toDegrees(atan2(y, x)) + 360.0) % 360.0
     }
 
     /** Расстояние от точки до ломаной (маршрута): проекция на плоскость вокруг точки хватает для

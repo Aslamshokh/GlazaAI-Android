@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.HelpOutline
@@ -84,6 +85,7 @@ fun ProfileScreen(
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenOffline: () -> Unit,
+    onOpenMemory: () -> Unit,
     onOpenPro: () -> Unit
 ) {
     var showLanguage by remember { mutableStateOf(false) }
@@ -189,6 +191,8 @@ fun ProfileScreen(
                 .background(Theme.surface)
         ) {
             ProfileRow(Icons.Outlined.History, "История", null, onClick = onOpenHistory)
+            HorizontalDivider(color = Theme.divider)
+            ProfileRow(Icons.Outlined.Bookmarks, "Память вещей", null, onClick = onOpenMemory)
             HorizontalDivider(color = Theme.divider)
             ProfileRow(
                 Icons.Outlined.Public,
@@ -340,6 +344,7 @@ fun ProfileScreen(
                     listOf(
                         "Главная — камера сама находит предметы и говорит, что и где. Кнопка по центру: «что вокруг?». Микрофон — голосовая команда.",
                         "Голосовые команды: «найди ключи», «прочитай текст», «сколько денег», «навигация до вокзала», «что вокруг».",
+                        "Память вещей: на главном экране скажите «запомни ключи здесь» — приложение снимет место, запишет время и GPS. Потом спросите «где мои ключи?» — оно ответит, где и когда вы их оставили. «Что ты помнишь» — список, «забудь ключи» — удалить.",
                         "Навигация — скажите, куда идти: приложение предложит пешком или транспортом и поведёт голосом.",
                         "Сканер — штрих-код товара, текст (с переводом русский ⇄ английский), купюры и QR-коды.",
                         "Если ничего не распознаётся — проверьте адрес сервера: Профиль → шестерёнка → «Сервер».",

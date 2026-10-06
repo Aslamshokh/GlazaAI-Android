@@ -57,9 +57,12 @@ import com.aslamshoh.glazaai.network.LiveTrack
 import com.aslamshoh.glazaai.network.VisionService
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.HistoryStore
+import com.aslamshoh.glazaai.store.MemoryStore
 import com.aslamshoh.glazaai.store.SettingsStore
 import com.aslamshoh.glazaai.util.ImageEncoding
 import com.aslamshoh.glazaai.util.ImageLoading
+import com.aslamshoh.glazaai.util.MemoryText
+import com.aslamshoh.glazaai.util.PlaceFix
 import com.aslamshoh.glazaai.util.ObjectInfo
 import com.aslamshoh.glazaai.util.VoiceCommand
 import com.aslamshoh.glazaai.util.VoiceCommands
@@ -129,17 +132,112 @@ fun HomeScreen(
     var hasAudio by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
     }
+    // ── «Память вещей»: «запомни ключи здесь» / «где мои ключи?» ──
+    fun showOutcome(outcome: MemoryOutcome) {
+        selected = null
+        photoCard = PhotoCard(outcome.title, outcome.text, outcome.thumb)
+        SpeechSynthesizer.speak(outcome.text, SettingsStore.speechRate)
+    }
+
+    fun doRemember(command: VoiceCommand.Remember) {
+        if (busy) return
+        busy = true
+        localError = null
+        SpeechSynthesizer.speakQueued("Запоминаю. Подождите несколько секунд.", SettingsStore.speechRate, true)
+        scope.launch {
+            try {
+                showOutcome(rememberHere(context, command.item, command.place, lastFrame[0], pipeline.tracks))
+            } catch (e: Exception) {
+                localError = "Не удалось запомнить. Попробуйте ещё раз."
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    var pendingRemember by remember { mutableStateOf<VoiceCommand.Remember?>(null) }
+    var askedLocation by remember { mutableStateOf(false) }
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+        // Разрешили или нет — вещь всё равно запоминаем (без GPS останутся фото и описание).
+        pendingRemember?.let { doRemember(it) }
+        pendingRemember = null
+    }
+
+    fun handleMemory(command: VoiceCommand) {
+        when (command) {
+            is VoiceCommand.Remember -> {
+                if (command.item.isBlank()) {
+                    SpeechSynthesizer.speak(
+                        "Что запомнить? Скажите, например: запомни ключи здесь.",
+                        SettingsStore.speechRate
+                    )
+                } else if (!PlaceFix.hasPermission(context) && !askedLocation) {
+                    askedLocation = true
+                    pendingRemember = command
+                    SpeechSynthesizer.speak(
+                        "Чтобы запомнить место по GPS, разрешите доступ к местоположению.",
+                        SettingsStore.speechRate
+                    )
+                    locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                } else {
+                    doRemember(command)
+                }
+            }
+            is VoiceCommand.Recall -> {
+                val item = if (command.item.isBlank()) null else MemoryStore.find(command.item)
+                if (command.item.isBlank()) {
+                    SpeechSynthesizer.speak(MemoryText.listAnswer(MemoryStore.items.toList(), System.currentTimeMillis()), SettingsStore.speechRate)
+                } else if (item != null) {
+                    if (item.lat != null) {
+                        SpeechSynthesizer.speakQueued("Сейчас скажу.", SettingsStore.speechRate, true)
+                    }
+                    busy = true
+                    scope.launch {
+                        try {
+                            showOutcome(recallItem(context, item))
+                        } finally {
+                            busy = false
+                        }
+                    }
+                } else if (command.explicit) {
+                    SpeechSynthesizer.speak(
+                        "Я не помню, где вы оставили ${command.item}. Чтобы найти камерой, скажите: найди ${command.item}.",
+                        SettingsStore.speechRate
+                    )
+                } else {
+                    onVoiceCommand(command) // «где ключи» без записи — обычный поиск камерой
+                }
+            }
+            is VoiceCommand.Forget -> {
+                val item = MemoryStore.find(command.item)
+                if (item == null) {
+                    SpeechSynthesizer.speak("Я и так не помню ${command.item}.", SettingsStore.speechRate)
+                } else {
+                    MemoryStore.remove(item.id)
+                    SpeechSynthesizer.speak("Забыла: ${item.name}.", SettingsStore.speechRate)
+                }
+            }
+            VoiceCommand.MemoryList ->
+                SpeechSynthesizer.speak(MemoryText.listAnswer(MemoryStore.items.toList(), System.currentTimeMillis()), SettingsStore.speechRate)
+            else -> Unit
+        }
+    }
+
     fun listenForCommand() {
         SpeechSynthesizer.stop()
         voice.listen { text ->
             val command = VoiceCommands.parse(text)
             if (command == VoiceCommand.Unknown) {
                 SpeechSynthesizer.speak(
-                    "Не поняла. Скажите, например: найди ключи, прочитай текст, навигация или сколько денег.",
+                    "Не поняла. Скажите, например: найди ключи, запомни ключи здесь, прочитай текст, навигация или сколько денег.",
                     SettingsStore.speechRate
                 )
             } else if (command == VoiceCommand.WhatsAround) {
                 pipeline.describeAll()
+            } else if (command is VoiceCommand.Remember || command is VoiceCommand.Recall ||
+                command is VoiceCommand.Forget || command == VoiceCommand.MemoryList
+            ) {
+                handleMemory(command)
             } else {
                 onVoiceCommand(command)
             }
