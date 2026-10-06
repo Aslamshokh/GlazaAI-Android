@@ -18,6 +18,11 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
+/** Длинная сторона кадра, который уходит на backend, и качество JPEG. Было 640/70 — мелкие
+ *  предметы (телефон на столе) терялись; 960/80 заметно чётче при ~100–150 КБ на кадр. */
+private const val LIVE_FRAME_MAX_SIDE = 960
+private const val LIVE_FRAME_QUALITY = 80
+
 /**
  * Конвейер живого режима: кадр с камеры -> backend (/vision/live-frame: YOLO + трекинг +
  * расстояние + приоритет) -> менеджер событий (что и когда озвучить) -> голос / вибрация.
@@ -51,7 +56,7 @@ class LivePipeline(
         if (paused) return
         if (!inFlight.compareAndSet(false, true)) return
         val dataUrl = try {
-            ImageEncoding.dataUrl(bitmap, 640, 70)
+            ImageEncoding.dataUrl(bitmap, LIVE_FRAME_MAX_SIDE, LIVE_FRAME_QUALITY)
         } catch (e: Exception) {
             inFlight.set(false)
             return

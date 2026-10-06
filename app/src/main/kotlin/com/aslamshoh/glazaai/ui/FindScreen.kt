@@ -185,7 +185,7 @@ fun FindScreen(initialQuery: String, onBack: () -> Unit) {
             if (kotlin.math.abs(aspect - frameAspect) > 0.01f) frameAspect = aspect
             if (queryHolder[0].isNotEmpty() && inFlight.compareAndSet(false, true)) {
                 val dataUrl = try {
-                    ImageEncoding.dataUrl(bitmap, 640, 70)
+                    ImageEncoding.dataUrl(bitmap, 960, 80)
                 } catch (e: Exception) {
                     inFlight.set(false)
                     null
