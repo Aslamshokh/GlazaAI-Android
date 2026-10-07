@@ -27,6 +27,7 @@ object SettingsStore {
     private const val KEY_APP_LANGUAGE = "glazaai.appLanguage"
     private const val KEY_NEURAL_VOICE = "glazaai.neuralVoice"
     private const val KEY_VOICE_GENDER = "glazaai.voiceGender"
+    private const val KEY_TESTER_NAME = "glazaai.testerName"
 
     var backendBaseUrl by mutableStateOf("")
         private set
@@ -52,6 +53,10 @@ object SettingsStore {
     var voiceGender by mutableStateOf("female")
         private set
 
+    /** Как подписывать отзывы (необязательно): имя или номер тестера. */
+    var testerName by mutableStateOf("")
+        private set
+
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences("glazaai_settings", Context.MODE_PRIVATE)
         backendBaseUrl = prefs.getString(KEY_BACKEND_URL, "") ?: ""
@@ -62,6 +67,12 @@ object SettingsStore {
         appLanguage = prefs.getString(KEY_APP_LANGUAGE, "ru") ?: "ru"
         neuralVoice = prefs.getBoolean(KEY_NEURAL_VOICE, true)
         voiceGender = prefs.getString(KEY_VOICE_GENDER, "female") ?: "female"
+        testerName = prefs.getString(KEY_TESTER_NAME, "") ?: ""
+    }
+
+    fun updateTesterName(value: String) {
+        testerName = value
+        prefs.edit().putString(KEY_TESTER_NAME, value).apply()
     }
 
     // Названы updateXxx, а не setXxx: при "private set" у var-свойства выше Kotlin всё равно

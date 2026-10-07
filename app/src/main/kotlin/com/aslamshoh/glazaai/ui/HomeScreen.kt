@@ -64,6 +64,8 @@ import com.aslamshoh.glazaai.util.ImageLoading
 import com.aslamshoh.glazaai.util.MemoryText
 import com.aslamshoh.glazaai.util.PlaceFix
 import com.aslamshoh.glazaai.util.ObjectInfo
+import com.aslamshoh.glazaai.util.ColorAnalyzer
+import com.aslamshoh.glazaai.util.ColorNamer
 import com.aslamshoh.glazaai.util.VoiceCommand
 import com.aslamshoh.glazaai.util.VoiceCommands
 import kotlinx.coroutines.launch
@@ -223,17 +225,44 @@ fun HomeScreen(
         }
     }
 
+    fun handleColor(command: VoiceCommand.ColorOf) {
+        val text = colorAnswer(command.item, pipeline.tracks, selected, lastFrame[0])
+        selected = null
+        photoCard = PhotoCard("Цвет", text, null)
+        SpeechSynthesizer.speak(text, SettingsStore.speechRate)
+    }
+
+    fun handleLight() {
+        if (busy) return
+        busy = true
+        SpeechSynthesizer.speakQueued("Смотрю на освещение.", SettingsStore.speechRate, true)
+        scope.launch {
+            try {
+                val text = lightAnswer(context, lastFrame[0])
+                selected = null
+                photoCard = PhotoCard("Освещение", text, null)
+                SpeechSynthesizer.speak(text, SettingsStore.speechRate)
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     fun listenForCommand() {
         SpeechSynthesizer.stop()
         voice.listen { text ->
             val command = VoiceCommands.parse(text)
             if (command == VoiceCommand.Unknown) {
                 SpeechSynthesizer.speak(
-                    "Не поняла. Скажите, например: найди ключи, запомни ключи здесь, прочитай текст, навигация или сколько денег.",
+                    "Не поняла. Скажите, например: найди ключи, запомни ключи здесь, какого цвета это, горит ли свет, прочитай текст или навигация.",
                     SettingsStore.speechRate
                 )
             } else if (command == VoiceCommand.WhatsAround) {
                 pipeline.describeAll()
+            } else if (command is VoiceCommand.ColorOf) {
+                handleColor(command)
+            } else if (command == VoiceCommand.Light) {
+                handleLight()
             } else if (command is VoiceCommand.Remember || command is VoiceCommand.Recall ||
                 command is VoiceCommand.Forget || command == VoiceCommand.MemoryList
             ) {
@@ -332,8 +361,12 @@ fun HomeScreen(
             } else if (track != null) {
                 val distance = formatMeters(track.distanceM)
                 val note = ObjectInfo.note(track.label)
+                val colorText = remember(selectedThumb) {
+                    selectedThumb?.let { ColorNamer.short(ColorAnalyzer.analyzeCrop(it)) }
+                }
                 val lines = listOfNotNull(
                     distance?.let { "Расстояние: $it · ${track.direction}" } ?: track.direction,
+                    colorText?.let { "Цвет: $it" },
                     note ?: if (track.approaching) "Приближается." else null
                 )
                 InfoCard(
@@ -344,7 +377,8 @@ fun HomeScreen(
                     primaryLabel = "Озвучить",
                     onPrimary = {
                         SpeechSynthesizer.speak(
-                            "${track.label}, ${LiveEventManager.distancePhrase(track)}, ${track.direction}. ${note ?: ""}",
+                            "${track.label}, ${LiveEventManager.distancePhrase(track)}, ${track.direction}. " +
+                                (colorText?.let { "Цвет: $it. " } ?: "") + (note ?: ""),
                             SettingsStore.speechRate
                         )
                     },

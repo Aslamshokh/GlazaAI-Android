@@ -36,4 +36,16 @@ object BarcodeService {
         val encoded = URLEncoder.encode(code, "UTF-8")
         return ApiClient.get("/barcode/$encoded")
     }
+
+}
+
+/** «Чек / Документ»: фото -> поля. Распознавание на сервере может занять до пары минут. */
+object DocumentService {
+    suspend fun read(imageDataUrl: String, kind: String): DocumentResult =
+        ApiClient.postSlow("/document/read", DocumentRequestBody(imageDataUrl, kind))
+}
+
+/** Отзыв тестера — приходит владельцу приложения (сервер сохраняет и пересылает в Telegram). */
+object FeedbackService {
+    suspend fun send(body: FeedbackRequestBody): FeedbackResult = ApiClient.post("/feedback", body)
 }

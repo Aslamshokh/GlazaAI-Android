@@ -15,6 +15,18 @@ data class ImageRequestBody(val image: String)
 
 data class OcrRequestBody(val image: String, val language: String)
 
+data class DocumentRequestBody(val image: String, val kind: String)
+
+data class FeedbackRequestBody(
+    val message: String,
+    val rating: Int?,
+    val category: String?,
+    val tester: String?,
+    val screen: String?,
+    val appVersion: String?,
+    val device: String?
+)
+
 data class LiveFrameRequestBody(val image: String, val sessionId: String)
 
 data class FindObjectRequestBody(val image: String, val query: String)
@@ -130,3 +142,27 @@ data class LiveFrameResult(
 )
 
 data class ErrorResponse(val detail: String)
+
+/** Поле документа или чека: «Итого — 341 рубль 90 копеек». */
+data class DocumentField(val label: String, val value: String)
+
+/** Позиция чека; spoken — готовая фраза «Молоко, 2 шт, 120 рублей». */
+data class DocumentItem(val name: String, val quantity: String?, val amount: Double?, val spoken: String)
+
+data class DocumentResult(
+    val id: String,
+    val title: String,
+    val description: String,
+    val kind: String,
+    val store: String?,
+    val date: String?,
+    val total: Double?,
+    val totalSure: Boolean?,
+    val items: List<DocumentItem>?,
+    val fields: List<DocumentField>?,
+    val recognizedText: String?,
+    val warnings: List<String>?,
+    val timestamp: Long
+)
+
+data class FeedbackResult(val id: String, val saved: Boolean, val forwarded: Boolean, val description: String)

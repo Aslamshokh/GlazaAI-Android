@@ -60,7 +60,7 @@ import java.util.Locale
 
 /** Камера для одиночного снимка (Текст, Валюта) с понятным сообщением вместо чёрного экрана. */
 @Composable
-private fun CaptureCamera(controller: CameraCaptureController, hasPermission: Boolean) {
+internal fun CaptureCamera(controller: CameraCaptureController, hasPermission: Boolean) {
     Box(modifier = Modifier.fillMaxSize()) {
         if (hasPermission) {
             CameraPreview(controller = controller, modifier = Modifier.fillMaxSize())

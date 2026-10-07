@@ -96,6 +96,8 @@ object Routes {
     const val PRO = "pro"
     const val OFFLINE = "offline"
     const val MEMORY = "memory"
+    const val DOCUMENT = "scan/document"
+    const val FEEDBACK = "feedback"
 }
 
 /** Пять вкладок нижнего меню. */
@@ -189,7 +191,8 @@ enum class ScanMode(val label: String, val route: String) {
     PRODUCT("Товар", Routes.BARCODE),
     TEXT("Текст", Routes.TEXT),
     CURRENCY("Валюта", Routes.CURRENCY),
-    QR("QR", Routes.QR)
+    QR("QR", Routes.QR),
+    DOC("Чек", Routes.DOCUMENT)
 }
 
 @Composable
@@ -209,7 +212,7 @@ fun ScanModeSwitch(selected: ScanMode, onSelect: (ScanMode) -> Unit, modifier: M
                     .clip(RoundedCornerShape(50))
                     .background(if (isSelected) Theme.accent else Color.Transparent)
                     .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(mode) })
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 11.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

@@ -59,9 +59,9 @@ object ApiClient {
 
     // Не private: вызывается из public inline-функций post()/get() ниже — Kotlin запрещает
     // public inline-функциям обращаться к private-членам (нарушение "public API inline").
-    inline fun <reified T> execute(request: Request): T {
+    inline fun <reified T> execute(request: Request, http: OkHttpClient = client): T {
         val response = try {
-            client.newCall(request).execute()
+            http.newCall(request).execute()
         } catch (e: IOException) {
             throw ApiException.Network
         }
@@ -97,6 +97,13 @@ object ApiClient {
         val requestBody = json.toRequestBody(jsonMediaType)
         val request = newRequestBuilder(path).post(requestBody).build()
         execute<T>(request)
+    }
+
+    /** Для тяжёлых запросов (чтение чека: OCR на сервере без видеокарты бывает долгим): ждём до [readSeconds]. */
+    suspend inline fun <reified T> postSlow(path: String, body: Any, readSeconds: Long = 120): T = withContext(Dispatchers.IO) {
+        val request = newRequestBuilder(path).post(gson.toJson(body).toRequestBody(jsonMediaType)).build()
+        val slow = client.newBuilder().readTimeout(readSeconds, TimeUnit.SECONDS).callTimeout(readSeconds + 15, TimeUnit.SECONDS).build()
+        execute<T>(request, slow)
     }
 
     suspend inline fun <reified T> get(path: String): T = withContext(Dispatchers.IO) {

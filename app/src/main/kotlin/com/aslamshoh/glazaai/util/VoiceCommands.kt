@@ -22,6 +22,18 @@ sealed class VoiceCommand {
     /** «Забудь ключи». */
     data class Forget(val item: String) : VoiceCommand()
     object MemoryList : VoiceCommand()
+
+    /** «Прочитай чек» / «что в документе». */
+    object Document : VoiceCommand()
+
+    /** «Оставить отзыв». */
+    object Feedback : VoiceCommand()
+
+    /** «Какого цвета эта рубашка?» — item пустой, если назвали просто «какого цвета это». */
+    data class ColorOf(val item: String) : VoiceCommand()
+
+    /** «Включён ли свет?» / «горит ли свет в комнате?» / «темно ли?». */
+    object Light : VoiceCommand()
     object Unknown : VoiceCommand()
 }
 
@@ -42,6 +54,10 @@ object VoiceCommands {
 
         fun has(vararg keys: String) = keys.any { text.contains(it) }
 
+        // Цвет и свет — раньше всего: «какого цвета» не должно уйти в поиск, а «где» — в память.
+        parseLight(text)?.let { return it }
+        parseColor(text)?.let { return it }
+
         // «Память вещей» — раньше «найди», иначе «где ключи» уйдёт в поиск камерой.
         parseMemory(text)?.let { return it }
 
@@ -52,6 +68,8 @@ object VoiceCommands {
         if (has("навигац", "маршрут", "как добраться", "как дойти", "как пройти", "веди", "отведи", "проводи", "дойти до")) {
             return VoiceCommand.Navigate(destinationFrom(text))
         }
+        if (has("отзыв", "написать разработчик", "обратная связь", "сообщить об ошибке")) return VoiceCommand.Feedback
+        if (Regex("(?:^| )(?:чек|чеки|чека|чеке|квитанци|документ|накладн|справк|паспорт)").containsMatchIn(text)) return VoiceCommand.Document
         if (has("qr", "кью", "кю ар", "куар")) return VoiceCommand.Qr
         if (has("купюр", "банкнот", "деньги", "денег", "рубл", "сколько стоит купюра")) return VoiceCommand.Currency
         if (has("штрих", "товар", "продукт", "сканер")) return VoiceCommand.Product
@@ -59,6 +77,43 @@ object VoiceCommands {
         if (has("истори")) return VoiceCommand.History
         if (has("вокруг", "передо мной", "предмет", "объект", "что тут", "что здесь")) return VoiceCommand.WhatsAround
         return VoiceCommand.Unknown
+    }
+
+    private val lightPhrases = listOf(
+        "включен ли свет", "включено ли свет", "включена ли лампа", "горит ли свет", "горит ли лампа",
+        "горит ли лампочка", "есть ли свет", "светит ли", "свет включен", "свет горит", "свет есть",
+        "темно ли", "светло ли", "темно здесь", "светло здесь", "темно в комнате", "светло в комнате",
+        "освещение", "освещенность", "яркость света", "насколько светло", "насколько темно",
+        "выключен ли свет", "выключено ли свет", "свет выключен", "включи ли свет"
+    )
+
+    private fun parseLight(text: String): VoiceCommand? {
+        if (text.contains("найди") || text.contains("поищи")) return null
+        if (lightPhrases.any { text.contains(it) }) return VoiceCommand.Light
+        // «в комнате свет?» — слово «свет» вместе с «комнат/лампа/включ/горит»
+        val words = text.split(" ")
+        if (words.any { it == "свет" } && (text.contains("комнат") || text.contains("включ") || text.contains("горит") || text.contains("лампа"))) {
+            return VoiceCommand.Light
+        }
+        return null
+    }
+
+    private val colorFillers = setOf(
+        "какого", "какой", "какая", "какое", "какие", "каких", "цвета", "цвет", "цвете", "цветов", "у", "этот", "эта",
+        "это", "эти", "этой", "этого", "этих", "этому", "мой", "моя", "мое", "мои", "моей", "моего", "моих", "ии", "глаз",
+        "ай", "скажи", "подскажи", "определи", "назови", "пожалуйста", "мне", "у меня", "вот", "здесь", "тут", "то",
+        "что", "за", "в", "руках", "руке", "кадре", "камере", "цветом", "ли", "а", "и", "какого-то"
+    )
+
+    private fun parseColor(text: String): VoiceCommand? {
+        if (text.contains("найди") || text.contains("поищи")) return null
+        val isColor = Regex("(?:^| )(?:цвет|цвета|цвете|цветом|цветов)(?: |$)").containsMatchIn(text) ||
+            text.contains("что за цвет") || text.contains("определи цвет")
+        if (!isColor) return null
+        val item = MemoryText.cleanItem(
+            text.split(" ").filter { it.isNotBlank() && it !in colorFillers }.joinToString(" ")
+        )
+        return VoiceCommand.ColorOf(item)
     }
 
     private const val PUT_VERBS =

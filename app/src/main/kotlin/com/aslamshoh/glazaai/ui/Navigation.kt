@@ -27,7 +27,7 @@ private fun tabFor(route: String?): AppTab? = when {
     route.startsWith(Routes.NAV) -> AppTab.NAV
     route.startsWith("scan/") -> AppTab.SCAN
     route == Routes.HISTORY -> AppTab.HISTORY
-    route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO || route == Routes.MEMORY -> AppTab.PROFILE
+    route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO || route == Routes.MEMORY || route == Routes.FEEDBACK -> AppTab.PROFILE
     else -> null
 }
 
@@ -97,6 +97,12 @@ fun GlazaNavHost() {
                     onBack = { navController.popBackStack() }
                 )
             }
+            composable(Routes.DOCUMENT) {
+                DocumentScreen(
+                    onSwitchMode = { openScanMode(navController, it) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable(
                 route = "${Routes.FIND}?query={query}",
                 arguments = listOf(navArgument("query") { type = NavType.StringType; defaultValue = "" })
@@ -113,10 +119,12 @@ fun GlazaNavHost() {
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenOffline = { navController.navigate(Routes.OFFLINE) },
                     onOpenMemory = { navController.navigate(Routes.MEMORY) },
+                    onOpenFeedback = { navController.navigate(Routes.FEEDBACK) },
                     onOpenPro = { navController.navigate(Routes.PRO) }
                 )
             }
             composable(Routes.SETTINGS) { SettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(Routes.FEEDBACK) { FeedbackScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.MEMORY) { MemoryScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.OFFLINE) { OfflineModelsScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.PRO) { ProScreen(onBack = { navController.popBackStack() }) }
@@ -164,8 +172,10 @@ private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
         VoiceCommand.Currency -> nav.navigate(Routes.CURRENCY) { launchSingleTop = true }
         VoiceCommand.Product -> nav.navigate(Routes.BARCODE) { launchSingleTop = true }
         VoiceCommand.Qr -> nav.navigate(Routes.QR) { launchSingleTop = true }
+        VoiceCommand.Document -> nav.navigate(Routes.DOCUMENT) { launchSingleTop = true }
+        VoiceCommand.Feedback -> nav.navigate(Routes.FEEDBACK) { launchSingleTop = true }
         VoiceCommand.History -> openTab(nav, AppTab.HISTORY)
-        VoiceCommand.WhatsAround, VoiceCommand.Unknown -> Unit
+        VoiceCommand.WhatsAround, VoiceCommand.Light, is VoiceCommand.ColorOf, VoiceCommand.Unknown -> Unit
         // Память вещей обрабатывает главный экран сам (ему нужен кадр камеры); сюда доходит
         // только запасной вариант «где X», когда X не запомнен, — это обычный поиск камерой.
         is VoiceCommand.Recall -> nav.navigate("${Routes.FIND}?query=${Uri.encode(command.item)}") { launchSingleTop = true }
