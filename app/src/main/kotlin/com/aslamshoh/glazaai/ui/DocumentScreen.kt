@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +67,7 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     var result by remember { mutableStateOf<DocumentResult?>(null) }
     var snapshot by remember { mutableStateOf<Bitmap?>(null) }
     var kind by remember { mutableStateOf("auto") } // auto / receipt / document
+    var failedRead by remember { mutableStateOf(0) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -83,6 +85,8 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
             if (bitmap == null) {
                 busy = false
                 error = "Не удалось получить кадр с камеры. Попробуйте ещё раз."
+                failedRead++
+                SpeechSynthesizer.speak(error.orEmpty(), SettingsStore.speechRate)
                 return@captureFrame
             }
             val dataUrl = ImageEncoding.dataUrl(bitmap, maxDimension = 2000, quality = 88)
@@ -96,6 +100,7 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                 } catch (e: Exception) {
                     val message = ApiClient.messageFor(e)
                     error = message
+                    failedRead++
                     SpeechSynthesizer.speak(message, SettingsStore.speechRate)
                 } finally {
                     busy = false
@@ -105,6 +110,17 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     }
 
     val current = result
+    val auto = rememberAutoCapture(controller, active = current == null && !busy && hasCamera, holdMs = 900) { capture() }
+    LaunchedEffect(failedRead) { if (failedRead > 0) auto.needMovement = true }
+    LaunchedEffect(hasCamera) {
+        if (hasCamera) {
+            SpeechSynthesizer.speakQueued(
+                "Положите чек или документ ровно, чтобы он занимал весь кадр. Снимок сделается сам, когда кадр будет чётким. Можно нажать большую кнопку.",
+                SettingsStore.speechRate,
+                false
+            )
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         CaptureCamera(controller, hasCamera)
@@ -143,11 +159,12 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         KindPill("Документ", kind == "document", Modifier.weight(1f)) { kind = "document" }
                     }
                     Text(
-                        "Положите чек или документ на ровную поверхность при хорошем свете, чтобы он занимал весь кадр, " +
-                            "и нажмите кнопку. Приложение скажет магазин, дату, итог и позиции — или поля документа.",
+                        "Положите чек или документ на ровную поверхность при хорошем свете, чтобы он занимал весь кадр. " +
+                            "Приложение снимет само, когда кадр станет чётким, и скажет магазин, дату, итог и позиции — или поля документа.",
                         color = Theme.textSecondary,
                         fontSize = 14.sp
                     )
+                    CaptureAssistRow(controller, auto)
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         ShutterButton(isBusy = busy) { capture() }
                     }

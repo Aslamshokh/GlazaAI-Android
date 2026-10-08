@@ -12,6 +12,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +43,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
@@ -98,6 +101,7 @@ object Routes {
     const val MEMORY = "memory"
     const val DOCUMENT = "scan/document"
     const val FEEDBACK = "feedback"
+    const val INSPECT = "scan/inspect"
 }
 
 /** Пять вкладок нижнего меню. */
@@ -137,12 +141,13 @@ fun GlazaBottomBar(selected: AppTab?, onSelect: (AppTab) -> Unit) {
     }
 }
 
-/** Пять режимов на главном экране (вторая строка снизу на макете). */
+/** Режимы на главном экране (вторая строка снизу на макете). */
 enum class HomeChip(val label: String, val icon: ImageVector) {
     OBJECTS("Объекты", Icons.Outlined.ViewInAr),
     TEXT("Текст", Icons.Outlined.TextFields),
     PRODUCT("Товар", Icons.Outlined.ShoppingBag),
     CURRENCY("Валюта", Icons.Outlined.Payments),
+    HAND("В руке", Icons.Outlined.PanTool),
     FIND("Поиск", Icons.Outlined.Search)
 }
 
@@ -192,15 +197,25 @@ enum class ScanMode(val label: String, val route: String) {
     TEXT("Текст", Routes.TEXT),
     CURRENCY("Валюта", Routes.CURRENCY),
     QR("QR", Routes.QR),
-    DOC("Чек", Routes.DOCUMENT)
+    DOC("Чек", Routes.DOCUMENT),
+    HAND("В руке", Routes.INSPECT)
 }
 
 @Composable
 fun ScanModeSwitch(selected: ScanMode, onSelect: (ScanMode) -> Unit, modifier: Modifier = Modifier) {
+    // Режимов шесть — на узком экране не помещаются, поэтому ряд прокручивается; выбранный
+    // режим при открытии экрана подводится в видимую область.
+    val scroll = rememberScrollState()
+    LaunchedEffect(selected, scroll.maxValue) {
+        val last = (ScanMode.entries.size - 1).coerceAtLeast(1)
+        scroll.scrollTo(scroll.maxValue * ScanMode.entries.indexOf(selected) / last)
+    }
     Row(
         modifier = modifier
+            .padding(horizontal = 8.dp)
             .clip(RoundedCornerShape(50))
             .background(Theme.bar.copy(alpha = 0.85f))
+            .horizontalScroll(scroll)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {

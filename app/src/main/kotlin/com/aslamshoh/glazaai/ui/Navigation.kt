@@ -103,6 +103,12 @@ fun GlazaNavHost() {
                     onBack = { navController.popBackStack() }
                 )
             }
+            composable(Routes.INSPECT) {
+                InspectScreen(
+                    onSwitchMode = { openScanMode(navController, it) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable(
                 route = "${Routes.FIND}?query={query}",
                 arguments = listOf(navArgument("query") { type = NavType.StringType; defaultValue = "" })
@@ -150,6 +156,7 @@ private fun openChip(nav: NavHostController, chip: HomeChip) {
         HomeChip.TEXT -> nav.navigate(Routes.TEXT) { launchSingleTop = true }
         HomeChip.PRODUCT -> nav.navigate(Routes.BARCODE) { launchSingleTop = true }
         HomeChip.CURRENCY -> nav.navigate(Routes.CURRENCY) { launchSingleTop = true }
+        HomeChip.HAND -> nav.navigate(Routes.INSPECT) { launchSingleTop = true }
         HomeChip.FIND -> nav.navigate(Routes.FIND) { launchSingleTop = true }
     }
 }
@@ -173,6 +180,7 @@ private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
         VoiceCommand.Product -> nav.navigate(Routes.BARCODE) { launchSingleTop = true }
         VoiceCommand.Qr -> nav.navigate(Routes.QR) { launchSingleTop = true }
         VoiceCommand.Document -> nav.navigate(Routes.DOCUMENT) { launchSingleTop = true }
+        VoiceCommand.Inspect -> nav.navigate(Routes.INSPECT) { launchSingleTop = true }
         VoiceCommand.Feedback -> nav.navigate(Routes.FEEDBACK) { launchSingleTop = true }
         VoiceCommand.History -> openTab(nav, AppTab.HISTORY)
         VoiceCommand.WhatsAround, VoiceCommand.Light, is VoiceCommand.ColorOf, VoiceCommand.Unknown -> Unit

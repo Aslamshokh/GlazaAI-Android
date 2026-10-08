@@ -26,6 +26,9 @@ sealed class VoiceCommand {
     /** «Прочитай чек» / «что в документе». */
     object Document : VoiceCommand()
 
+    /** «Что у меня в руке» / «какой это овощ» / «свежий ли помидор». */
+    object Inspect : VoiceCommand()
+
     /** «Оставить отзыв». */
     object Feedback : VoiceCommand()
 
@@ -74,6 +77,12 @@ object VoiceCommands {
         if (has("купюр", "банкнот", "деньги", "денег", "рубл", "сколько стоит купюра")) return VoiceCommand.Currency
         if (has("штрих", "товар", "продукт", "сканер")) return VoiceCommand.Product
         if (has("прочитай", "прочти", "читай", "текст", "надпись", "что написано")) return VoiceCommand.ReadText
+        if (has(
+                "в руке", "в руках", "что я держу", "что держу", "что это за овощ", "что это за фрукт", "какой это овощ",
+                "какой это фрукт", "что за овощ", "что за фрукт", "свежий ли", "свежая ли", "свежее ли", "спелый ли",
+                "спелая ли", "спелое ли", "испортил", "созрел", "не гнил"
+            )
+        ) return VoiceCommand.Inspect
         if (has("истори")) return VoiceCommand.History
         if (has("вокруг", "передо мной", "предмет", "объект", "что тут", "что здесь")) return VoiceCommand.WhatsAround
         return VoiceCommand.Unknown

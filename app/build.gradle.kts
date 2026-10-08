@@ -83,6 +83,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
 
 
+
+    // Сканер QR и штрихкодов: быстрее и надёжнее ZXing, работает без интернета.
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
     // Перевод Текст ⇄ Перевод (RU⇄EN): модели скачиваются один раз, дальше работают офлайн.
     implementation("com.google.mlkit:translate:17.0.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

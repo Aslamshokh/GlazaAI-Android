@@ -25,6 +25,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -93,6 +94,8 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     var explanation by remember { mutableStateOf<String?>(null) }
     var tab by remember { mutableIntStateOf(0) } // 0 — Текст, 1 — Перевод
     var reversed by remember { mutableStateOf(false) }
+    var uncertainNote by remember { mutableStateOf<String?>(null) }
+    var failedRead by remember { mutableStateOf(0) } // растёт при каждой неудаче: автосъёмка ждёт движения камеры
 
     DisposableEffect(Unit) {
         onDispose {
@@ -126,20 +129,27 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
         if (busy || !hasCamera) return
         error = null
         busy = true
+        SpeechSynthesizer.speakQueued("Читаю…", SettingsStore.speechRate, true)
         controller.captureFrame { bitmap ->
             if (bitmap == null) {
                 busy = false
                 error = "Не удалось получить кадр с камеры. Попробуйте ещё раз."
+                failedRead++
+                SpeechSynthesizer.speak(error.orEmpty(), SettingsStore.speechRate)
                 return@captureFrame
             }
-            val dataUrl = ImageEncoding.dataUrl(bitmap)
+            val dataUrl = ImageEncoding.dataUrl(bitmap, maxDimension = 2000, quality = 88)
             scope.launch {
                 try {
                     val r = OcrService.recognize(dataUrl, SettingsStore.appLanguage)
                     val text = r.recognizedText.ifBlank { "" }.trim()
                     if (text.isEmpty()) {
-                        error = r.description.ifBlank { "Текст не найден. Поднесите камеру ближе и попробуйте ещё раз." }
+                        val message = r.description.ifBlank { "Текст не найден. Поднесите камеру ближе и попробуйте ещё раз." }
+                        error = message
+                        failedRead++
+                        SpeechSynthesizer.speak(message, SettingsStore.speechRate)
                     } else {
+                        uncertainNote = r.description.takeIf { "неуверенно" in it }
                         original = text
                         translated = null
                         explanation = null
@@ -151,13 +161,29 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                             SettingsStore.speechRate,
                             if (Translator.isCyrillic(text)) null else Locale.ENGLISH
                         )
+                        uncertainNote?.let { SpeechSynthesizer.speakQueued(it, SettingsStore.speechRate, false) }
                     }
                 } catch (e: Exception) {
-                    error = ApiClient.messageFor(e)
+                    val message = ApiClient.messageFor(e)
+                    error = message
+                    failedRead++
+                    SpeechSynthesizer.speak(message, SettingsStore.speechRate)
                 } finally {
                     busy = false
                 }
             }
+        }
+    }
+
+    val auto = rememberAutoCapture(controller, active = original == null && !busy && hasCamera) { capture() }
+    LaunchedEffect(failedRead) { if (failedRead > 0) auto.needMovement = true }
+    LaunchedEffect(hasCamera) {
+        if (hasCamera) {
+            SpeechSynthesizer.speakQueued(
+                "Наведите камеру на текст. Снимок сделается сам, когда кадр будет чётким. Можно и нажать большую кнопку внизу.",
+                SettingsStore.speechRate,
+                false
+            )
         }
     }
 
@@ -194,10 +220,12 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
             if (text == null) {
                 GlassSheet {
                     Text(
-                        "Наведите камеру на текст и нажмите кнопку — приложение прочитает его вслух.",
+                        "Наведите камеру на текст: приложение снимет само, когда кадр станет чётким, и прочитает вслух. " +
+                            "Или нажмите кнопку.",
                         color = Theme.textSecondary,
                         fontSize = 14.sp
                     )
+                    CaptureAssistRow(controller, auto)
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         ShutterButton(isBusy = busy) { capture() }
                     }
@@ -246,6 +274,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         )
                     }
 
+                    uncertainNote?.let { Text(it, color = Theme.warning, fontSize = 13.sp) }
                     explanation?.let {
                         Text(it, color = Theme.textPrimary.copy(alpha = 0.9f), fontSize = 14.sp)
                     }
@@ -286,6 +315,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         original = null
                         translated = null
                         explanation = null
+                        uncertainNote = null
                         error = null
                         SpeechSynthesizer.stop()
                     }

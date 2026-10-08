@@ -45,6 +45,12 @@ object DocumentService {
         ApiClient.postSlow("/document/read", DocumentRequestBody(imageDataUrl, kind))
 }
 
+/** «Что в руке»: предмет, цвет, состояние овощей и фруктов. Серверная модель тратит несколько секунд. */
+object InspectService {
+    suspend fun inspect(imageDataUrl: String): InspectResult =
+        ApiClient.postSlow("/vision/inspect", ImageRequestBody(imageDataUrl))
+}
+
 /** Отзыв тестера — приходит владельцу приложения (сервер сохраняет и пересылает в Telegram). */
 object FeedbackService {
     suspend fun send(body: FeedbackRequestBody): FeedbackResult = ApiClient.post("/feedback", body)

@@ -165,4 +165,27 @@ data class DocumentResult(
     val timestamp: Long
 )
 
+/** Цвет предмета: название и доля площади (0..1). */
+data class InspectColor(val name: String, val share: Double)
+
+/** «Что в руке»: предмет, цвет и (для овощей и фруктов) состояние по цвету. */
+data class InspectResult(
+    val id: String,
+    val found: Boolean,
+    val title: String,
+    val description: String,
+    val label: String?,
+    val confidence: Double?,
+    val inHand: Boolean?,
+    val box: List<Double>?,
+    val alternatives: List<String>?,
+    val colors: List<InspectColor>?,
+    val colorText: String?,
+    val condition: String?,
+    val conditionState: String?,
+    val attention: Boolean?,
+    val isProduce: Boolean?,
+    val timestamp: Long
+)
+
 data class FeedbackResult(val id: String, val saved: Boolean, val forwarded: Boolean, val description: String)

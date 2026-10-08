@@ -4,7 +4,12 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
@@ -22,6 +27,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.aslamshoh.glazaai.util.FrameQuality
+import com.aslamshoh.glazaai.util.FrameStats
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Управляет одной сессией CameraX (превью + захват кадра) для режимов с одиночным снимком —
@@ -34,7 +43,32 @@ class CameraCaptureController(
     private val lifecycleOwner: LifecycleOwner
 ) {
     private var imageCapture: ImageCapture? = null
+    private var camera: Camera? = null
     private var provider: ProcessCameraProvider? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var analysisExecutor: ExecutorService? = null
+    private val quality = FrameQuality()
+
+    @Volatile
+    private var lastAnalysisMs = 0L
+
+    /**
+     * Оценка каждого кадра (чёткость, яркость, движение) — приходит в главном потоке не чаще
+     * ~7 раз в секунду. Включается только пока слушатель задан.
+     */
+    @Volatile
+    var qualityListener: ((FrameStats) -> Unit)? = null
+        set(value) {
+            field = value
+            if (value == null) quality.reset()
+        }
+
+    /** Есть ли у камеры вспышка (для фонарика). */
+    var hasTorch by mutableStateOf(false)
+        private set
+    var torchOn by mutableStateOf(false)
+        private set
+
     // Только свои use case: при смене экрана старый экран не должен отключать камеру нового.
     private var useCases: Array<androidx.camera.core.UseCase> = emptyArray()
 
@@ -55,15 +89,36 @@ class CameraCaptureController(
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .build()
 
+                // Анализ яркостной плоскости для автосъёмки; если камера не тянет три потока сразу,
+                // откатываемся на превью + снимок без автосъёмки (кнопка работает всегда).
+                val analysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                val executor = Executors.newSingleThreadExecutor()
+                analysisExecutor?.shutdown()
+                analysisExecutor = executor
+                analysis.setAnalyzer(executor) { image -> analyze(image) }
+
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    capture
-                )
+                var bound: Camera
+                var cases: Array<androidx.camera.core.UseCase>
+                try {
+                    bound = cameraProvider.bindToLifecycle(
+                        lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture, analysis
+                    )
+                    cases = arrayOf(preview, capture, analysis)
+                } catch (e: Exception) {
+                    cameraProvider.unbindAll()
+                    bound = cameraProvider.bindToLifecycle(
+                        lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture
+                    )
+                    cases = arrayOf(preview, capture)
+                }
+                camera = bound
+                hasTorch = bound.cameraInfo.hasFlashUnit()
+                torchOn = false
                 provider = cameraProvider
-                useCases = arrayOf(preview, capture)
+                useCases = cases
                 imageCapture = capture
                 isReady = true
                 errorMessage = null
@@ -74,8 +129,37 @@ class CameraCaptureController(
     }
 
     fun unbind() {
+        qualityListener = null
+        if (torchOn) camera?.cameraControl?.enableTorch(false)
         if (useCases.isNotEmpty()) provider?.unbind(*useCases)
         isReady = false
+        torchOn = false
+        analysisExecutor?.shutdown()
+        analysisExecutor = null
+    }
+
+    /** Фонарик: в тёмной комнате текст и коды без него не читаются. */
+    fun setTorch(on: Boolean) {
+        val cam = camera ?: return
+        if (!hasTorch) return
+        cam.cameraControl.enableTorch(on)
+        torchOn = on
+    }
+
+    private fun analyze(image: ImageProxy) {
+        try {
+            val listener = qualityListener
+            val now = SystemClock.elapsedRealtime()
+            if (listener == null || now - lastAnalysisMs < ANALYSIS_INTERVAL_MS) return
+            lastAnalysisMs = now
+            val plane = image.planes[0]
+            val stats = quality.measure(plane.buffer, image.width, image.height, plane.rowStride, plane.pixelStride)
+            mainHandler.post { qualityListener?.invoke(stats) }
+        } catch (e: Exception) {
+            // Один плохой кадр не должен ломать камеру.
+        } finally {
+            image.close()
+        }
     }
 
     fun captureFrame(onResult: (Bitmap?) -> Unit) {
@@ -98,6 +182,10 @@ class CameraCaptureController(
                 }
             }
         )
+    }
+
+    private companion object {
+        const val ANALYSIS_INTERVAL_MS = 140L
     }
 
     private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {

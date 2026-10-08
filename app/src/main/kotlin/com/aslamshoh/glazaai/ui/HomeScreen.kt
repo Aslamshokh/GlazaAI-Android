@@ -254,7 +254,7 @@ fun HomeScreen(
             val command = VoiceCommands.parse(text)
             if (command == VoiceCommand.Unknown) {
                 SpeechSynthesizer.speak(
-                    "Не поняла. Скажите, например: найди ключи, запомни ключи здесь, какого цвета это, горит ли свет, прочитай текст или навигация.",
+                    "Не поняла. Скажите, например: найди ключи, запомни ключи здесь, что у меня в руке, какого цвета это, горит ли свет, прочитай чек или навигация.",
                     SettingsStore.speechRate
                 )
             } else if (command == VoiceCommand.WhatsAround) {

@@ -3,8 +3,9 @@ package com.aslamshoh.glazaai.ui
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
-import android.view.View
+import android.os.SystemClock
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInBrowser
@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -36,8 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -45,52 +48,69 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
+import com.aslamshoh.glazaai.camera.BarcodeCameraPreview
+import com.aslamshoh.glazaai.camera.BarcodeHit
+import com.aslamshoh.glazaai.camera.rememberBarcodeCameraController
 import com.aslamshoh.glazaai.network.ApiClient
 import com.aslamshoh.glazaai.network.BarcodeResult
 import com.aslamshoh.glazaai.network.BarcodeService
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.HistoryStore
 import com.aslamshoh.glazaai.store.SettingsStore
+import com.aslamshoh.glazaai.util.Beeper
+import com.aslamshoh.glazaai.util.QrInfo
+import com.aslamshoh.glazaai.util.QrKind
+import com.aslamshoh.glazaai.util.QrText
 import com.aslamshoh.glazaai.util.RemoteImages
-import com.google.zxing.BarcodeFormat
-import com.journeyapps.barcodescanner.BarcodeCallback
-import com.journeyapps.barcodescanner.DecoratedBarcodeView
+import com.aslamshoh.glazaai.util.ScanHints
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Экран 4 макета — «Сканер товара» (и QR-коды): камера непрерывно ищет штрих-код (ZXing на
- * устройстве), по найденному коду backend берёт данные товара из Open Food Facts. Результат —
- * карточка товара: фото, название, бренд, страна, состав, пищевая ценность.
- * Срок годности здесь не показываем сознательно: в каталоге товаров его нет, он напечатан на
- * конкретной упаковке (его читает вкладка «Текст»).
+ * Экран «Сканер товара» и «QR»: камера непрерывно ищет код (ML Kit на телефоне — быстро, без
+ * интернета, понимает QR, штрихкоды EAN/UPC/Code128 и др.). Нашёл — сигнал, вибрация и голос.
+ * Штрихкод товара ищется в открытых базах через backend; QR разбирается на месте: ссылка, Wi-Fi,
+ * телефон, визитка, текст. Если код долго не находится, голос подсказывает, что поправить.
+ * Срок годности здесь не показываем: в каталоге его нет, он напечатан на упаковке («Текст»).
  */
 @Composable
 fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
+    val haptic = LocalHapticFeedback.current
     val hasCamera = rememberCameraPermission()
+    val controller = rememberBarcodeCameraController()
 
     var isLookingUp by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var product by remember { mutableStateOf<BarcodeResult?>(null) }
     var productImage by remember { mutableStateOf<Bitmap?>(null) }
     var expanded by remember { mutableStateOf(false) }
-    var qrText by remember { mutableStateOf<String?>(null) }
-    var scannerView by remember { mutableStateOf<DecoratedBarcodeView?>(null) }
+    var qr by remember { mutableStateOf<QrInfo?>(null) }
+    var startedAt by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
+    var hintsDone by remember { mutableIntStateOf(0) }
 
-    fun handleScan(value: String, format: BarcodeFormat) {
-        // QR — это просто текст, а не товарный код для Open Food Facts.
-        if (format == BarcodeFormat.QR_CODE) {
-            qrText = value
-            SpeechSynthesizer.speak(value, SettingsStore.speechRate)
-            HistoryStore.addEntry("QR-код", "QR-код распознан", value)
+    fun announceFound() {
+        Beeper.success()
+        if (SettingsStore.hapticsEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+
+    fun handleHit(hit: BarcodeHit) {
+        if (product != null || qr != null || isLookingUp) return
+        controller.paused = true
+        announceFound()
+        val value = hit.value.trim()
+        if (hit.twoDimensional || !QrText.isProductCode(value)) {
+            val info = if (hit.twoDimensional) QrText.describe(value) else QrInfo(QrKind.TEXT, "Штрихкод", "Штрихкод: $value", value)
+            qr = info
+            SpeechSynthesizer.speak(info.spoken, SettingsStore.speechRate)
+            HistoryStore.addEntry(if (hit.twoDimensional) "QR-код" else "Штрихкод", info.title, info.spoken)
             return
         }
         isLookingUp = true
         errorMessage = null
+        SpeechSynthesizer.speakQueued("Код найден. Ищу товар.", SettingsStore.speechRate, true)
         scope.launch {
             try {
                 val result = BarcodeService.lookup(value)
@@ -101,8 +121,12 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
                 HistoryStore.addEntry("Товар", result.productName ?: result.title, result.description, image)
                 SpeechSynthesizer.speak(result.description, SettingsStore.speechRate)
             } catch (e: Exception) {
-                errorMessage = ApiClient.messageFor(e)
-                scannerView?.resume()
+                val message = ApiClient.messageFor(e)
+                errorMessage = message
+                SpeechSynthesizer.speak(message, SettingsStore.speechRate)
+                // Пауза, чтобы тот же код не отправился снова мгновенно.
+                delay(3000)
+                controller.paused = false
             } finally {
                 isLookingUp = false
             }
@@ -112,51 +136,53 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
     fun reset() {
         product = null
         productImage = null
-        qrText = null
+        qr = null
         errorMessage = null
         expanded = false
         SpeechSynthesizer.stop()
-        scannerView?.resume()
+        startedAt = SystemClock.elapsedRealtime()
+        hintsDone = 0
+        controller.paused = false
     }
 
-    LaunchedEffect(scannerView) {
-        if (scannerView != null) {
-            delay(600)
-            scannerView?.resume()
+    LaunchedEffect(controller) { controller.onResult = { hit -> handleHit(hit) } }
+
+    LaunchedEffect(hasCamera) {
+        if (hasCamera) {
+            SpeechSynthesizer.speakQueued(
+                if (mode == ScanMode.QR) "Наведите камеру на QR-код и двигайте телефон медленно. Услышите сигнал, когда код найден."
+                else "Наведите камеру на штрихкод товара и двигайте телефон медленно. Услышите сигнал, когда код найден.",
+                SettingsStore.speechRate,
+                false
+            )
+        }
+    }
+
+    // Если код долго не находится — голосом подсказываем, что поправить.
+    LaunchedEffect(hasCamera, product, qr, controller.torchOn) {
+        if (!hasCamera || product != null || qr != null) return@LaunchedEffect
+        while (true) {
+            delay(1000)
+            if (isLookingUp) continue
+            val elapsed = SystemClock.elapsedRealtime() - startedAt
+            ScanHints.next(elapsed, hintsDone, controller.hasTorch, controller.torchOn)?.let { (stage, text) ->
+                hintsDone = stage + 1
+                SpeechSynthesizer.speakQueued(text, SettingsStore.speechRate, false)
+            }
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            scannerView?.pause()
+            controller.release()
             SpeechSynthesizer.stop()
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (hasCamera) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    DecoratedBarcodeView(ctx).apply {
-                        // Свою «прицельную» рамку рисуем сами (как на макете) — стандартную прячем.
-                        viewFinder.visibility = View.GONE
-                        statusView.visibility = View.GONE
-                        decodeContinuous(object : BarcodeCallback {
-                            override fun barcodeResult(result: com.journeyapps.barcodescanner.BarcodeResult) {
-                                if (product != null || qrText != null || isLookingUp) return
-                                handleScan(result.text, result.barcodeFormat)
-                            }
-
-                            override fun possibleResultPoints(resultPoints: MutableList<com.google.zxing.ResultPoint>) {}
-                        })
-                        // resume() — не здесь, а чуть позже (см. LaunchedEffect ниже): предыдущий экран
-                        // с камерой должен успеть её отпустить, иначе сканер откроется чёрным.
-                        scannerView = this
-                    }
-                }
-            )
-            if (product == null && qrText == null) {
+            BarcodeCameraPreview(controller = controller, modifier = Modifier.fillMaxSize())
+            if (product == null && qr == null) {
                 BracketFrame(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -178,20 +204,30 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
             ScanModeSwitch(selected = mode, onSelect = onSwitchMode)
         }
 
-        // подсказка / индикатор загрузки
+        // подсказка / индикатор загрузки / фонарик
         if (hasCamera && isLookingUp) {
             CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center))
-        } else if (hasCamera && product == null && qrText == null) {
-            Text(
-                if (mode == ScanMode.QR) "Наведите камеру на QR-код" else "Наведите камеру на штрих-код",
-                color = Color.White,
-                fontSize = 14.sp,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp)
-                    .background(Color(0x990A1020), androidx.compose.foundation.shape.RoundedCornerShape(50))
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            )
+        } else if (hasCamera && product == null && qr == null) {
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (controller.hasTorch) {
+                    AssistPill(
+                        label = if (controller.torchOn) "Фонарик: вкл" else "Фонарик: выкл",
+                        on = controller.torchOn
+                    ) { controller.setTorch(!controller.torchOn) }
+                }
+                Text(
+                    if (mode == ScanMode.QR) "Наведите камеру на QR-код" else "Наведите камеру на штрих-код",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .background(Color(0x990A1020), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
         }
 
         // низ: результат
@@ -206,26 +242,26 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
         ) {
             errorMessage?.let { ErrorBanner(it) }
 
-            qrText?.let { text ->
-                val isUrl = text.startsWith("http://", ignoreCase = true) || text.startsWith("https://", ignoreCase = true)
+            qr?.let { info ->
                 GlassSheet {
-                    Text("QR-код распознан", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(text, color = Theme.textPrimary.copy(alpha = 0.9f), fontSize = 15.sp)
+                    Text(info.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(info.copy, color = Theme.textPrimary.copy(alpha = 0.9f), fontSize = 15.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         ActionButton("Озвучить", icon = Icons.Filled.VolumeUp, filled = true, modifier = Modifier.weight(1f)) {
-                            SpeechSynthesizer.speak(text, SettingsStore.speechRate)
+                            SpeechSynthesizer.speak(info.spoken, SettingsStore.speechRate)
                         }
-                        if (isUrl) {
+                        val target = info.openUrl
+                        if (target != null) {
                             ActionButton("Открыть", icon = Icons.Filled.OpenInBrowser, modifier = Modifier.weight(1f)) {
                                 try {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(text)))
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Не удалось открыть ссылку", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         } else {
                             ActionButton("Копировать", icon = Icons.Filled.ContentCopy, modifier = Modifier.weight(1f)) {
-                                clipboard.setText(AnnotatedString(text))
+                                clipboard.setText(AnnotatedString(info.copy))
                                 Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
                             }
                         }
