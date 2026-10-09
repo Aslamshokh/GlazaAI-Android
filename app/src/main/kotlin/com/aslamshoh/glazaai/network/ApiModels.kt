@@ -189,3 +189,29 @@ data class InspectResult(
 )
 
 data class FeedbackResult(val id: String, val saved: Boolean, val forwarded: Boolean, val description: String)
+
+// ---------- «Помощь волонтёра» ----------
+data class HelpRequestBody(
+    val deviceId: String,
+    val name: String,
+    val language: String,
+    val urgent: Boolean,
+    val lat: Double?,
+    val lon: Double?
+)
+data class HelpDeviceBody(val deviceId: String)
+data class HelpRateBody(val deviceId: String, val rating: Int, val comment: String?)
+data class HelpReportBody(val deviceId: String, val reason: String)
+data class HelpOk(val ok: Boolean = true)
+
+/** Состояние вызова: waiting → accepted → finished; либо expired / cancelled. */
+data class HelpStatus(
+    val requestId: Int,
+    val status: String,
+    val urgent: Boolean = false,
+    val waitedSeconds: Int = 0,
+    val leftSeconds: Int = 0,
+    val volunteerName: String? = null,
+    val roomUrl: String? = null,
+    val volunteersOnline: Int? = null
+)

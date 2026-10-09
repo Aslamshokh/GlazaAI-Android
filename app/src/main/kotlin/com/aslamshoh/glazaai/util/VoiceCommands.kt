@@ -32,6 +32,9 @@ sealed class VoiceCommand {
     /** «Оставить отзыв». */
     object Feedback : VoiceCommand()
 
+    /** «Позови волонтёра» (volunteer = true — сразу начать вызов) / «нужна помощь», «позвони близкому». */
+    data class Help(val volunteer: Boolean) : VoiceCommand()
+
     /** «Какого цвета эта рубашка?» — item пустой, если назвали просто «какого цвета это». */
     data class ColorOf(val item: String) : VoiceCommand()
 
@@ -64,6 +67,9 @@ object VoiceCommands {
         // «Память вещей» — раньше «найди», иначе «где ключи» уйдёт в поиск камерой.
         parseMemory(text)?.let { return it }
 
+        // Помощь: «найди волонтёра» — это вызов, а не поиск предмета, поэтому раньше «найди».
+        parseHelp(text)?.let { return it }
+
         if (has("найди", "найти", "найдите", "поищи", "ищи", "где ")) {
             val query = text.split(" ").filter { it.isNotBlank() && it !in fillers }.joinToString(" ")
             return VoiceCommand.Find(query)
@@ -86,6 +92,22 @@ object VoiceCommands {
         if (has("истори")) return VoiceCommand.History
         if (has("вокруг", "передо мной", "предмет", "объект", "что тут", "что здесь")) return VoiceCommand.WhatsAround
         return VoiceCommand.Unknown
+    }
+
+    private val helpVolunteerWords = listOf(
+        "волонтер", "волонтир", "добровол", "позови человека", "нужен человек", "позвать человека", "живой человек"
+    )
+    private val helpGeneralWords = listOf(
+        "нужна помощь", "нужна мне помощь", "помогите", "помоги мне", "помоги", "на помощь", "экстренн", "позвони близк",
+        "позвонить близк", "позвони родным", "позвони маме", "тревога", "открой помощь", "раздел помощь"
+    )
+
+    private fun parseHelp(text: String): VoiceCommand? {
+        if (helpVolunteerWords.any { text.contains(it) }) return VoiceCommand.Help(volunteer = true)
+        if (helpGeneralWords.any { text.contains(it) } || Regex("(?:^| )(?:помощь|sos|сос)(?: |$)").containsMatchIn(text)) {
+            return VoiceCommand.Help(volunteer = false)
+        }
+        return null
     }
 
     private val lightPhrases = listOf(

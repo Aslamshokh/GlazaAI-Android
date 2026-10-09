@@ -27,7 +27,7 @@ private fun tabFor(route: String?): AppTab? = when {
     route.startsWith(Routes.NAV) -> AppTab.NAV
     route.startsWith("scan/") -> AppTab.SCAN
     route == Routes.HISTORY -> AppTab.HISTORY
-    route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO || route == Routes.MEMORY || route == Routes.FEEDBACK -> AppTab.PROFILE
+    route.startsWith(Routes.HELP) || route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO || route == Routes.MEMORY || route == Routes.FEEDBACK -> AppTab.PROFILE
     else -> null
 }
 
@@ -62,6 +62,7 @@ fun GlazaNavHost() {
                 HomeScreen(
                     onChip = { chip -> openChip(navController, chip) },
                     onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onHelp = { navController.navigate("${Routes.HELP}?auto=0") { launchSingleTop = true } },
                     onVoiceCommand = { command -> openVoiceCommand(navController, command) }
                 )
             }
@@ -126,7 +127,17 @@ fun GlazaNavHost() {
                     onOpenOffline = { navController.navigate(Routes.OFFLINE) },
                     onOpenMemory = { navController.navigate(Routes.MEMORY) },
                     onOpenFeedback = { navController.navigate(Routes.FEEDBACK) },
+                    onOpenHelp = { navController.navigate("${Routes.HELP}?auto=0") { launchSingleTop = true } },
                     onOpenPro = { navController.navigate(Routes.PRO) }
+                )
+            }
+            composable(
+                route = "${Routes.HELP}?auto={auto}",
+                arguments = listOf(navArgument("auto") { type = NavType.IntType; defaultValue = 0 })
+            ) { entry ->
+                HelpScreen(
+                    autoStart = (entry.arguments?.getInt("auto") ?: 0) == 1,
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(Routes.SETTINGS) { SettingsScreen(onBack = { navController.popBackStack() }) }
@@ -182,6 +193,7 @@ private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
         VoiceCommand.Document -> nav.navigate(Routes.DOCUMENT) { launchSingleTop = true }
         VoiceCommand.Inspect -> nav.navigate(Routes.INSPECT) { launchSingleTop = true }
         VoiceCommand.Feedback -> nav.navigate(Routes.FEEDBACK) { launchSingleTop = true }
+        is VoiceCommand.Help -> nav.navigate("${Routes.HELP}?auto=${if (command.volunteer) 1 else 0}") { launchSingleTop = true }
         VoiceCommand.History -> openTab(nav, AppTab.HISTORY)
         VoiceCommand.WhatsAround, VoiceCommand.Light, is VoiceCommand.ColorOf, VoiceCommand.Unknown -> Unit
         // Память вещей обрабатывает главный экран сам (ему нужен кадр камеры); сюда доходит

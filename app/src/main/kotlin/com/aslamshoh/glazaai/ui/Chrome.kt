@@ -48,6 +48,7 @@ import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SupportAgent
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.ViewInAr
@@ -102,6 +103,7 @@ object Routes {
     const val DOCUMENT = "scan/document"
     const val FEEDBACK = "feedback"
     const val INSPECT = "scan/inspect"
+    const val HELP = "help"
 }
 
 /** Пять вкладок нижнего меню. */
@@ -270,7 +272,8 @@ fun CameraTopBar(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    onSettings: (() -> Unit)? = null
+    onSettings: (() -> Unit)? = null,
+    onHelp: (() -> Unit)? = null
 ) {
     Box(
         modifier = modifier
@@ -292,6 +295,11 @@ fun CameraTopBar(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.align(Alignment.Center)
         )
+        if (onHelp != null) {
+            IconButton(onClick = onHelp, modifier = Modifier.align(Alignment.CenterStart)) {
+                Icon(Icons.Outlined.SupportAgent, contentDescription = "Помощь: позвать волонтёра или близкого", tint = Color.White)
+            }
+        }
         if (onSettings != null) {
             IconButton(onClick = onSettings, modifier = Modifier.align(Alignment.CenterEnd)) {
                 Icon(Icons.Outlined.Settings, contentDescription = "Настройки", tint = Color.White)

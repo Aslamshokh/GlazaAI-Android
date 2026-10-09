@@ -26,11 +26,18 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew :app:assembleDebug :volunteer:assembleDebug --no-daemon
 
       - name: Upload APK as build artifact
         uses: actions/upload-artifact@v4
         with:
           name: GlazaAI-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload volunteer APK as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlazaVolunteer-debug-apk
+          path: volunteer/build/outputs/apk/debug/volunteer-debug.apk
           retention-days: 30

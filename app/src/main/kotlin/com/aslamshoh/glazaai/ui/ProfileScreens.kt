@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.RateReview
+import androidx.compose.material.icons.outlined.SupportAgent
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.HelpOutline
@@ -88,6 +89,7 @@ fun ProfileScreen(
     onOpenOffline: () -> Unit,
     onOpenMemory: () -> Unit,
     onOpenFeedback: () -> Unit,
+    onOpenHelp: () -> Unit,
     onOpenPro: () -> Unit
 ) {
     var showLanguage by remember { mutableStateOf(false) }
@@ -195,6 +197,8 @@ fun ProfileScreen(
             ProfileRow(Icons.Outlined.History, "История", null, onClick = onOpenHistory)
             HorizontalDivider(color = Theme.divider)
             ProfileRow(Icons.Outlined.Bookmarks, "Память вещей", null, onClick = onOpenMemory)
+            HorizontalDivider(color = Theme.divider)
+            ProfileRow(Icons.Outlined.SupportAgent, "Помощь: волонтёр и близкие", null, onClick = onOpenHelp)
             HorizontalDivider(color = Theme.divider)
             ProfileRow(Icons.Outlined.RateReview, "Оставить отзыв", null, onClick = onOpenFeedback)
             HorizontalDivider(color = Theme.divider)
@@ -347,7 +351,7 @@ fun ProfileScreen(
                 ) {
                     listOf(
                         "Главная — камера сама находит предметы и говорит, что и где. Кнопка по центру: «что вокруг?». Микрофон — голосовая команда.",
-                        "Голосовые команды: «найди ключи», «прочитай текст», «сколько денег», «навигация до вокзала», «что вокруг», «какого цвета эта рубашка», «горит ли свет», «что у меня в руке», «прочитай чек», «оставить отзыв».",
+                        "Голосовые команды: «найди ключи», «прочитай текст», «сколько денег», «навигация до вокзала», «что вокруг», «какого цвета эта рубашка», «горит ли свет», «что у меня в руке», «прочитай чек», «позови волонтёра», «оставить отзыв».",
                         "Память вещей: на главном экране скажите «запомни ключи здесь» — приложение снимет место, запишет время и GPS. Потом спросите «где мои ключи?» — оно ответит, где и когда вы их оставили. «Что ты помнишь» — список, «забудь ключи» — удалить.",
                         "Навигация — скажите, куда идти: приложение предложит пешком или транспортом и поведёт голосом.",
                         "Сканер — штрих-код товара и QR-коды (сами находятся, со звуковым сигналом и фонариком), текст (снимается сам, когда кадр чёткий; с переводом русский ⇄ английский), купюры, «Чек» (магазин, дата, итог, позиции или поля документа) и «В руке» (что за предмет, цвет, состояние овощей и фруктов).",

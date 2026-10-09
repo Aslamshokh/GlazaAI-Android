@@ -55,3 +55,20 @@ object InspectService {
 object FeedbackService {
     suspend fun send(body: FeedbackRequestBody): FeedbackResult = ApiClient.post("/feedback", body)
 }
+
+/** «Позвать волонтёра»: сервер подбирает свободного волонтёра и выдаёт секретную ссылку на видеокомнату. */
+object HelpService {
+    suspend fun request(body: HelpRequestBody): HelpStatus = ApiClient.post("/help/requests", body)
+
+    suspend fun status(requestId: Int, deviceId: String): HelpStatus =
+        ApiClient.get("/help/requests/$requestId?deviceId=${URLEncoder.encode(deviceId, "UTF-8")}")
+
+    suspend fun cancel(requestId: Int, deviceId: String): HelpStatus =
+        ApiClient.post("/help/requests/$requestId/cancel", HelpDeviceBody(deviceId))
+
+    suspend fun rate(requestId: Int, deviceId: String, rating: Int, comment: String? = null): HelpOk =
+        ApiClient.post("/help/requests/$requestId/rate", HelpRateBody(deviceId, rating, comment))
+
+    suspend fun report(requestId: Int, deviceId: String, reason: String): HelpOk =
+        ApiClient.post("/help/requests/$requestId/report", HelpReportBody(deviceId, reason))
+}

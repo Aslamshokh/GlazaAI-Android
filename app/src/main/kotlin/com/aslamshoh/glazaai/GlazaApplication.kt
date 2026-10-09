@@ -2,6 +2,7 @@ package com.aslamshoh.glazaai
 
 import android.app.Application
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
+import com.aslamshoh.glazaai.store.HelpStore
 import com.aslamshoh.glazaai.store.HistoryStore
 import com.aslamshoh.glazaai.store.MemoryStore
 import com.aslamshoh.glazaai.store.SettingsStore
@@ -14,6 +15,7 @@ class GlazaApplication : Application() {
         SettingsStore.init(this)
         HistoryStore.init(this)
         MemoryStore.init(this)
+        HelpStore.init(this)
         SpeechSynthesizer.init(this)
     }
 }

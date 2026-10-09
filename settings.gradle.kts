@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "GlazaAI"
 include(":app")
+// Приложение волонтёра «ИИ Глаз Помощь» (отдельный APK)
+include(":volunteer")

@@ -82,6 +82,7 @@ private class PhotoCard(val title: String, val text: String, val thumb: Bitmap?)
 fun HomeScreen(
     onChip: (HomeChip) -> Unit,
     onSettings: () -> Unit,
+    onHelp: () -> Unit,
     onVoiceCommand: (VoiceCommand) -> Unit
 ) {
     val context = LocalContext.current
@@ -254,7 +255,7 @@ fun HomeScreen(
             val command = VoiceCommands.parse(text)
             if (command == VoiceCommand.Unknown) {
                 SpeechSynthesizer.speak(
-                    "Не поняла. Скажите, например: найди ключи, запомни ключи здесь, что у меня в руке, какого цвета это, горит ли свет, прочитай чек или навигация.",
+                    "Не поняла. Скажите, например: найди ключи, запомни ключи здесь, что у меня в руке, какого цвета это, горит ли свет, прочитай чек, навигация или позови волонтёра.",
                     SettingsStore.speechRate
                 )
             } else if (command == VoiceCommand.WhatsAround) {
@@ -315,6 +316,7 @@ fun HomeScreen(
         CameraTopBar(
             title = "ИИ Глаз",
             onSettings = onSettings,
+            onHelp = onHelp,
             modifier = Modifier.align(Alignment.TopCenter)
         )
 

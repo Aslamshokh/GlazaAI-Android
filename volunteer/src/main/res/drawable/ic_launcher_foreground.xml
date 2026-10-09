@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Простой глаз — силуэт, согласованный с иконкой "eye.fill" из iOS-версии и общей
+     темой приложения (Theme.swift / colors.xml), без использования растровых PNG. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#2F8CFF"
+        android:pathData="M24,54 Q54,30 84,54 Q54,78 24,54 Z" />
+    <path
+        android:fillColor="#0A1020"
+        android:pathData="M54,54 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0" />
+</vector>
