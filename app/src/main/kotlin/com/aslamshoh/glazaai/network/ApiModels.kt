@@ -213,5 +213,17 @@ data class HelpStatus(
     val leftSeconds: Int = 0,
     val volunteerName: String? = null,
     val roomUrl: String? = null,
+    val room: String? = null,
+    /** Данные для видеозвонка внутри приложения; null — LiveKit на сервере не настроен, тогда открывается Jitsi по roomUrl. */
+    val livekit: LiveKitInfo? = null,
     val volunteersOnline: Int? = null
 )
+
+/** Адрес и персональный токен для подключения к комнате LiveKit. publishVideo — включать ли камеру (у пользователя да, у волонтёра нет). */
+data class LiveKitInfo(
+    val url: String = "",
+    val token: String = "",
+    val room: String = "",
+    val publishVideo: Boolean = false
+)
+

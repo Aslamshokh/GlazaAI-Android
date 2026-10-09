@@ -82,6 +82,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
 
+    // Видеозвонок с волонтёром прямо в приложении (LiveKit). Репозиторий JitPack подключён в settings.gradle.kts.
+    implementation("io.livekit:livekit-android:2.29.0")
+
 
 
     // Сканер QR и штрихкодов: быстрее и надёжнее ZXing, работает без интернета.

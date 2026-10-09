@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Приложение волонтёра «ИИ Глаз Помощь» — отдельный APK в том же репозитории.
+// Приложение волонтёра «Eyes AI Volunteer» — отдельный APK в том же репозитории.
 android {
     namespace = "com.aslamshoh.glazaai.volunteer"
     compileSdk = 34
@@ -13,8 +13,8 @@ android {
         applicationId = "com.aslamshoh.glazaai.volunteer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
@@ -54,5 +54,6 @@ dependencies {
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("io.livekit:livekit-android:2.29.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }

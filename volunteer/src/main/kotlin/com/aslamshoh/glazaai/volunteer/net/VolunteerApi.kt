@@ -15,7 +15,7 @@ class ApiError(val status: Int, message: String) : Exception(message)
 
 private data class ErrorBody(val detail: String? = null)
 private data class OtpBody(val phone: String)
-private data class VerifyBody(val phone: String, val code: String, val name: String, val languages: List<String>)
+private data class VerifyBody(val phone: String, val code: String, val name: String? = null, val languages: List<String>? = null)
 private data class OnlineBody(val online: Boolean)
 private data class ReasonBody(val reason: String)
 private object Empty
@@ -40,7 +40,11 @@ object VolunteerApi {
     private fun <T> run(method: String, path: String, body: Any?, auth: Boolean, cls: Class<T>): T {
         val builder = Request.Builder().url(url(path))
         if (auth) builder.addHeader("Authorization", "Bearer " + VolunteerStore.token)
-        if (method == "GET") builder.get() else builder.post(gson.toJson(body ?: Empty).toRequestBody(json))
+        when (method) {
+            "GET" -> builder.get()
+            "PUT" -> builder.put(gson.toJson(body ?: Empty).toRequestBody(json))
+            else -> builder.post(gson.toJson(body ?: Empty).toRequestBody(json))
+        }
         val response = try {
             client.newCall(builder.build()).execute()
         } catch (e: IOException) {
@@ -59,10 +63,20 @@ object VolunteerApi {
     suspend fun requestCode(phone: String): OtpResponse =
         withContext(Dispatchers.IO) { run("POST", "/help/volunteers/otp", OtpBody(phone), false, OtpResponse::class.java) }
 
-    suspend fun verify(phone: String, code: String, name: String, languages: List<String>): VerifyResponse =
+    /** Проверка кода. Анкета (имя, языки…) отправляется отдельно через [updateProfile]. */
+    suspend fun verify(phone: String, code: String): VerifyResponse =
         withContext(Dispatchers.IO) {
-            run("POST", "/help/volunteers/verify", VerifyBody(phone, code.trim(), name.trim(), languages), false, VerifyResponse::class.java)
+            run("POST", "/help/volunteers/verify", VerifyBody(phone, code.trim()), false, VerifyResponse::class.java)
         }
+
+    suspend fun updateProfile(body: ProfileBody): VolunteerProfile =
+        withContext(Dispatchers.IO) { run("PUT", "/help/volunteers/me", body, true, VolunteerProfile::class.java) }
+
+    suspend fun history(kind: String = "all"): List<HistoryItem> =
+        withContext(Dispatchers.IO) { run("GET", "/help/volunteers/me/history?kind=$kind", null, true, HistoryResponse::class.java).items ?: emptyList() }
+
+    suspend fun stats(period: String, tzOffsetMin: Int): StatsResponse =
+        withContext(Dispatchers.IO) { run("GET", "/help/volunteers/me/stats?period=$period&tz=$tzOffsetMin", null, true, StatsResponse::class.java) }
 
     suspend fun me(): VolunteerProfile =
         withContext(Dispatchers.IO) { run("GET", "/help/volunteers/me", null, true, VolunteerProfile::class.java) }

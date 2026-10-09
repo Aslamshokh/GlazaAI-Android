@@ -1,5 +1,7 @@
 package com.aslamshoh.glazaai.util
 
+import com.google.gson.Gson
+
 /** Доверенный человек, которому можно позвонить одним нажатием. */
 data class TrustedContact(val name: String, val phone: String)
 
@@ -54,6 +56,15 @@ object HelpText {
         val next = if (hasContacts) "Позвоните близкому или попробуйте ещё раз." else "Попробуйте ещё раз или добавьте близкого человека, чтобы звонить ему."
         return if (urgent) "$base При угрозе жизни звоните в экстренную службу. $next" else "$base $next"
     }
+
+    // ── чат с волонтёром во время звонка: сообщения идут по каналу данных LiveKit (формат общий с приложением волонтёра) ──
+    private data class ChatWire(val t: String = "", val text: String = "")
+
+    /** Текст сообщения волонтёра или null, если пришло что-то другое. */
+    fun chatDecode(bytes: ByteArray): String? = try {
+        val w = Gson().fromJson(String(bytes, Charsets.UTF_8), ChatWire::class.java)
+        if (w != null && w.t == "chat" && w.text.isNotBlank()) w.text.trim().take(500) else null
+    } catch (e: Exception) { null }
 
     fun rated(n: Int): String = if (n >= 4) "Спасибо за оценку!" else "Спасибо. Мы учтём ваш отзыв."
 

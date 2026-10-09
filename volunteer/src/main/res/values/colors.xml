@@ -2,7 +2,7 @@
 <resources>
     <!-- Те же значения, что в GlazaAI-iOS/GlazaAI/Theme.swift — единый тёмно-синий стиль
          из референсного макета на всех платформах. -->
-    <color name="glaza_background">#0A1020</color>
+    <color name="glaza_background">#0A0A1F</color>
     <color name="glaza_surface">#121A2E</color>
     <color name="glaza_surface_alt">#1A2438</color>
     <color name="glaza_accent">#2F8CFF</color>

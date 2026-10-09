@@ -9,7 +9,9 @@ import com.aslamshoh.glazaai.volunteer.store.VolunteerStore
 class VolunteerApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        instance = this
         VolunteerStore.init(this)
+        VolunteerRepo.loadLocal()
         if (Build.VERSION.SDK_INT >= 26) {
             val nm = getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(
@@ -24,5 +26,11 @@ class VolunteerApp : Application() {
                 }
             )
         }
+    }
+
+    companion object {
+        /** Нужен для выхода из аккаунта, чтобы остановить службу «на связи». */
+        var instance: VolunteerApp? = null
+            private set
     }
 }

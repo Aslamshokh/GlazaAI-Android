@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,6 +53,7 @@ import com.aslamshoh.glazaai.nav.LocationProvider
 import com.aslamshoh.glazaai.network.ApiClient
 import com.aslamshoh.glazaai.network.HelpRequestBody
 import com.aslamshoh.glazaai.network.HelpService
+import com.aslamshoh.glazaai.network.LiveKitInfo
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.HelpStore
 import com.aslamshoh.glazaai.store.SettingsStore
@@ -67,7 +69,7 @@ private sealed interface HelpPhase {
     object Menu : HelpPhase
     data class Consent(val urgent: Boolean) : HelpPhase
     data class Waiting(val id: Int, val urgent: Boolean) : HelpPhase
-    data class Connected(val id: Int, val url: String, val name: String?) : HelpPhase
+    data class Connected(val id: Int, val url: String, val name: String?, val lk: LiveKitInfo? = null) : HelpPhase
     data class Rate(val id: Int, val name: String?) : HelpPhase
     data class Notice(val text: String, val urgent: Boolean) : HelpPhase
 }
@@ -172,15 +174,10 @@ fun HelpScreen(autoStart: Boolean, onBack: () -> Unit) {
                 val st = HelpService.request(
                     HelpRequestBody(HelpStore.deviceId, name, SettingsStore.appLanguage, urgent, lat, lon)
                 )
-                if (st.status == "accepted" && st.roomUrl != null) {
-                    phase = HelpPhase.Connected(st.requestId, st.roomUrl, st.volunteerName)
-                    say(HelpText.accepted(st.volunteerName))
-                    openRoom(st.roomUrl)
-                } else {
-                    waitingId[0] = st.requestId
-                    phase = HelpPhase.Waiting(st.requestId, urgent)
-                    HelpText.waiting(st.volunteersOnline, 0)?.let { say(it) }
-                }
+                // Даже если вызов сразу принят, переходим в ожидание: ближайший опрос вернёт данные видеокомнаты.
+                waitingId[0] = st.requestId
+                phase = HelpPhase.Waiting(st.requestId, urgent)
+                HelpText.waiting(st.volunteersOnline, 0)?.let { say(it) }
             } catch (e: Exception) {
                 val m = ApiClient.messageFor(e)
                 error = m
@@ -213,8 +210,14 @@ fun HelpScreen(autoStart: Boolean, onBack: () -> Unit) {
                 when (st.status) {
                     "accepted" -> {
                         waitingId[0] = -1
+                        val lk = st.livekit
                         val url = st.roomUrl
-                        if (url != null) {
+                        if (lk != null) {
+                            // видео внутри приложения
+                            phase = HelpPhase.Connected(st.requestId, url.orEmpty(), st.volunteerName, lk)
+                            say(HelpText.accepted(st.volunteerName))
+                        } else if (url != null) {
+                            // запасной вариант: сервер без LiveKit — открываем Jitsi
                             phase = HelpPhase.Connected(st.requestId, url, st.volunteerName)
                             say(HelpText.accepted(st.volunteerName))
                             openRoom(url)
@@ -314,15 +317,26 @@ fun HelpScreen(autoStart: Boolean, onBack: () -> Unit) {
                     "Видеозвонок" + (p.name?.let { " с $it" } ?: ""),
                     color = Theme.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold
                 )
-                Text(
-                    "Если видеозвонок закрылся, нажмите «Открыть звонок снова». Нужна бесплатная программа Jitsi Meet.",
-                    color = Theme.textSecondary, fontSize = 14.sp
-                )
-                HelpButton("Открыть звонок снова", Theme.accent, Icons.Filled.Call) { openRoom(p.url) }
-                HelpButton("Завершить звонок", Theme.surfaceAlt, null) {
-                    scope.launch { try { HelpService.cancel(p.id, HelpStore.deviceId) } catch (_: Exception) {} }
-                    phase = HelpPhase.Rate(p.id, p.name)
-                    say("Звонок завершён. Оцените помощь: выберите от одного до пяти.")
+                if (p.lk != null) {
+                    // звонок внутри приложения; key — чтобы при новом вызове комната создавалась заново
+                    key(p.id) {
+                        UserCall(p.lk, p.name) { reason ->
+                            scope.launch { try { HelpService.cancel(p.id, HelpStore.deviceId) } catch (_: Exception) {} }
+                            phase = HelpPhase.Rate(p.id, p.name)
+                            say((reason ?: "Звонок завершён.") + " Оцените помощь: выберите от одного до пяти.")
+                        }
+                    }
+                } else {
+                    Text(
+                        "Если видеозвонок закрылся, нажмите «Открыть звонок снова». Нужна бесплатная программа Jitsi Meet.",
+                        color = Theme.textSecondary, fontSize = 14.sp
+                    )
+                    HelpButton("Открыть звонок снова", Theme.accent, Icons.Filled.Call) { openRoom(p.url) }
+                    HelpButton("Завершить звонок", Theme.surfaceAlt, null) {
+                        scope.launch { try { HelpService.cancel(p.id, HelpStore.deviceId) } catch (_: Exception) {} }
+                        phase = HelpPhase.Rate(p.id, p.name)
+                        say("Звонок завершён. Оцените помощь: выберите от одного до пяти.")
+                    }
                 }
                 EmergencyAndContacts(::dial, ::tellWhereIAm, showContacts = false)
             }
@@ -449,7 +463,7 @@ private fun ContactsEditor(fieldColors: androidx.compose.material3.TextFieldColo
 }
 
 @Composable
-private fun HelpButton(
+internal fun HelpButton(
     label: String,
     color: Color,
     icon: androidx.compose.ui.graphics.vector.ImageVector?,

@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import com.aslamshoh.glazaai.volunteer.net.ApiError
+import com.aslamshoh.glazaai.volunteer.store.VolunteerStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,7 +43,14 @@ class DutyService : Service() {
                         val offers = VolunteerRepo.poll()
                         failures = 0
                         val fresh = OfferText.newOfferIds(offers.map { it.requestId }, notified)
-                        offers.filter { it.requestId in fresh }.forEach { notifyOffer(it.requestId, it.userName, it.urgent) }
+                        offers.filter { it.requestId in fresh }.forEach {
+                            VolunteerRepo.addNotice(
+                                if (it.urgent) "sos" else "call",
+                                if (it.urgent) "Новое SOS обращение" else "Новый вызов",
+                                if (it.urgent) "Срочная помощь по видеосвязи" else "Помощь по видеосвязи"
+                            )
+                            notifyOffer(it.requestId, it.userName, it.urgent)
+                        }
                         notified.addAll(fresh)
                         notified.retainAll(offers.map { it.requestId }.toSet() + fresh.toSet())
                     } catch (e: ApiError) {
@@ -83,7 +91,9 @@ class DutyService : Service() {
             .build()
 
     private fun notifyOffer(requestId: Int, userName: String, urgent: Boolean) {
+        if (!VolunteerStore.notificationsOn) return
         val n = NotificationCompat.Builder(this, CHANNEL_OFFER)
+            .setSilent(!VolunteerStore.soundOn)
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setContentTitle(OfferText.title(userName, urgent))
             .setContentText("Нажмите, чтобы ответить")
