@@ -125,7 +125,7 @@ fun ProfileScreen(
             ) {
                 Icon(Icons.Outlined.RemoveRedEye, contentDescription = null, tint = Theme.accent, modifier = Modifier.size(32.dp))
             }
-            Text("ИИ Глаз", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("EYES AI", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Outlined.Settings, contentDescription = "Настройки", tint = Color.White)
             }
@@ -228,7 +228,7 @@ fun ProfileScreen(
         }
 
         Text(
-            "ИИ Глаз · версия 1.0.0",
+            "EYES AI · версия 1.0.0",
             color = Theme.textSecondary,
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
@@ -558,7 +558,7 @@ fun ProScreen(onBack: () -> Unit) {
                 tint = Color(0xFFC58BFF),
                 modifier = Modifier.size(52.dp)
             )
-            Text("ИИ Глаз PRO", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text("EYES AI PRO", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             Text("Видит больше. Понимает больше.", color = Color(0xFFD6C6F5), fontSize = 15.sp)
 
             Column(

@@ -1,6 +1,6 @@
 package com.aslamshoh.glazaai.util
 
-/** Что человек попросил голосом на главном экране («ИИ Глаз, найди ключи»). */
+/** Что человек попросил голосом на главном экране («EYES AI, найди ключи»). */
 sealed class VoiceCommand {
     data class Find(val query: String) : VoiceCommand()
     data class Navigate(val destination: String?) : VoiceCommand()
@@ -49,7 +49,7 @@ sealed class VoiceCommand {
  */
 object VoiceCommands {
     private val fillers = setOf(
-        "ии", "глаз", "ай", "пожалуйста", "мне", "мои", "мой", "моя", "моё", "мою", "пожалуйста",
+        "ии", "глаз", "ай", "айс", "айз", "eyes", "эй", "ai", "пожалуйста", "мне", "мои", "мой", "моя", "моё", "мою", "пожалуйста",
         "ну", "а", "и", "где", "найди", "найти", "найдите", "поищи", "ищи", "искать", "покажи", "это"
     )
 
@@ -131,7 +131,7 @@ object VoiceCommands {
 
     private val colorFillers = setOf(
         "какого", "какой", "какая", "какое", "какие", "каких", "цвета", "цвет", "цвете", "цветов", "у", "этот", "эта",
-        "это", "эти", "этой", "этого", "этих", "этому", "мой", "моя", "мое", "мои", "моей", "моего", "моих", "ии", "глаз",
+        "это", "эти", "этой", "этого", "этих", "этому", "мой", "моя", "мое", "мои", "моей", "моего", "моих", "ии", "глаз", "айс", "айз", "eyes", "эй", "ai",
         "ай", "скажи", "подскажи", "определи", "назови", "пожалуйста", "мне", "у меня", "вот", "здесь", "тут", "то",
         "что", "за", "в", "руках", "руке", "кадре", "камере", "цветом", "ли", "а", "и", "какого-то"
     )
@@ -149,9 +149,9 @@ object VoiceCommands {
 
     private const val PUT_VERBS =
         "оставил|оставила|положил|положила|поставил|поставила|убрал|убрала|спрятал|спрятала|припрятал|припрятала"
-    private val rememberStart = Regex("^(?:(?:ии|глаз|ай) )*(?:запомни|запомните|запомнить|запиши|сохрани)(?: пожалуйста)?(?: (.+))?$")
-    private val putStart = Regex("^(?:(?:ии|глаз|ай) )*я (?:$PUT_VERBS) (.+)$")
-    private val forgetStart = Regex("^(?:(?:ии|глаз|ай) )*(?:забудь|забыть|удали|сотри) (.+?)(?: из памяти)?$")
+    private val rememberStart = Regex("^(?:(?:ии|глаз|ай|айс|айз|eyes|эй|ai) )*(?:запомни|запомните|запомнить|запиши|сохрани)(?: пожалуйста)?(?: (.+))?$")
+    private val putStart = Regex("^(?:(?:ии|глаз|ай|айс|айз|eyes|эй|ai) )*я (?:$PUT_VERBS) (.+)$")
+    private val forgetStart = Regex("^(?:(?:ии|глаз|ай|айс|айз|eyes|эй|ai) )*(?:забудь|забыть|удали|сотри) (.+?)(?: из памяти)?$")
     private val askWords = Regex("(?:^| )(?:где|куда) (.+)$")
     private val listPhrases = listOf(
         "что ты помнишь", "что ты запомнил", "что я запомнил", "что я оставил", "что запомнено",
@@ -168,7 +168,7 @@ object VoiceCommands {
 
         forgetStart.find(text)?.let { m ->
             val first = text.substringBefore(' ')
-            val isForget = first.startsWith("забу") || text.contains("из памяти") || text.startsWith("ии") || text.startsWith("глаз")
+            val isForget = first.startsWith("забу") || text.contains("из памяти") || text.startsWith("ии") || text.startsWith("глаз") || text.startsWith("eyes") || text.startsWith("айс") || text.startsWith("айз")
             val item = MemoryText.cleanItem(m.groupValues[1])
             if (isForget && item.isNotEmpty() && !item.contains("истор")) return VoiceCommand.Forget(item)
         }

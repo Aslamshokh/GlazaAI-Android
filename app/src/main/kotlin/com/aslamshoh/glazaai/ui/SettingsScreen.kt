@@ -93,7 +93,7 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                "Тот же backend, что использует web- и iOS-версии GLAZA AI (glaza-ai-backend). " +
+                "Тот же backend, что использует web- и iOS-версии EYES AI (glaza-ai-backend). " +
                     "Укажите адрес сервера — локальный (http://192.168.х.х:8000) или через туннель " +
                     "(cloudflared/ngrok). X-API-Key нужен, только если задан BACKEND_API_KEY на сервере.",
                 color = Theme.textSecondary,

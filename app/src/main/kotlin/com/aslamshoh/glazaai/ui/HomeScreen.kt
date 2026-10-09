@@ -131,7 +131,7 @@ fun HomeScreen(
         }
     }
 
-    // ── микрофон: «ИИ Глаз, найди ключи», «прочитай текст», «навигация до вокзала» ──
+    // ── микрофон: «EYES AI, найди ключи», «прочитай текст», «навигация до вокзала» ──
     var hasAudio by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
     }
@@ -314,7 +314,7 @@ fun HomeScreen(
         }
 
         CameraTopBar(
-            title = "ИИ Глаз",
+            title = "EYES AI",
             onSettings = onSettings,
             onHelp = onHelp,
             modifier = Modifier.align(Alignment.TopCenter)
