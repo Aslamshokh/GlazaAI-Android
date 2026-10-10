@@ -1,7 +1,11 @@
 package com.aslamshoh.glazaai.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,13 +44,16 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.aslamshoh.glazaai.camera.rememberCameraCaptureController
 import com.aslamshoh.glazaai.network.ApiClient
 import com.aslamshoh.glazaai.network.DocumentResult
+import com.aslamshoh.glazaai.nav.VoiceInput
 import com.aslamshoh.glazaai.network.DocumentService
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.HistoryStore
 import com.aslamshoh.glazaai.store.SettingsStore
+import com.aslamshoh.glazaai.util.DocQa
 import com.aslamshoh.glazaai.util.DocumentText
 import com.aslamshoh.glazaai.util.ImageEncoding
 import kotlinx.coroutines.launch
@@ -68,10 +76,35 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     var snapshot by remember { mutableStateOf<Bitmap?>(null) }
     var kind by remember { mutableStateOf("auto") } // auto / receipt / document
     var failedRead by remember { mutableStateOf(0) }
+    var answer by remember { mutableStateOf<String?>(null) }
+    var largeText by remember { mutableStateOf<String?>(null) }
+    largeText?.let { LargeTextDialog(it) { largeText = null } }
+    val voice = remember { VoiceInput(context) }
+    var hasAudio by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+    }
+
+    // «Чат с документом»: спрашиваем голосом, отвечаем по уже распознанному тексту — прямо на телефоне.
+    fun ask(doc: DocumentResult) {
+        SpeechSynthesizer.stop()
+        voice.listen { text ->
+            val reply = if (text == null) "Я не расслышала вопрос. " + DocQa.hint(doc) else DocQa.answer(doc, text)
+            answer = reply
+            SpeechSynthesizer.speak(reply, SettingsStore.speechRate)
+        }
+    }
+    var pendingDoc by remember { mutableStateOf<DocumentResult?>(null) }
+    val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasAudio = granted
+        val d = pendingDoc
+        if (granted && d != null) ask(d)
+        else if (!granted) SpeechSynthesizer.speak("Без микрофона вопрос задать нельзя. Разрешите доступ к микрофону в настройках.", SettingsStore.speechRate)
+    }
 
     DisposableEffect(Unit) {
         onDispose {
             controller.unbind()
+            voice.cancel()
             SpeechSynthesizer.stop()
         }
     }
@@ -96,7 +129,8 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                     result = r
                     snapshot = bitmap
                     HistoryStore.addEntry("Документ", r.title + (r.store?.let { ": $it" } ?: ""), DocumentText.readAll(r), bitmap)
-                    SpeechSynthesizer.speak(DocumentText.afterCapture(r), SettingsStore.speechRate)
+                    answer = null
+                    SpeechSynthesizer.speak(DocumentText.afterCapture(r) + " Можно задать вопрос по документу: нажмите «Спросить про документ».", SettingsStore.speechRate)
                 } catch (e: Exception) {
                     val message = ApiClient.messageFor(e)
                     error = message
@@ -237,7 +271,25 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                             Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
                         }
                     }
+                    answer?.let { a ->
+                        Text(a, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    ActionButton(
+                        if (voice.listening) "Слушаю…" else "Спросить про документ",
+                        icon = Icons.Filled.Mic,
+                        filled = true,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (!hasAudio) {
+                            pendingDoc = current
+                            audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        } else ask(current)
+                    }
+                    ActionButton("Крупно", modifier = Modifier.fillMaxWidth()) {
+                        largeText = current.recognizedText.orEmpty().ifBlank { DocumentText.readAll(current) }
+                    }
                     ActionButton("Снять заново", modifier = Modifier.fillMaxWidth()) {
+                        answer = null
                         result = null
                         snapshot = null
                         error = null

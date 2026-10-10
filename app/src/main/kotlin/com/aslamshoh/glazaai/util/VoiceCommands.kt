@@ -11,6 +11,18 @@ sealed class VoiceCommand {
     object History : VoiceCommand()
     object WhatsAround : VoiceCommand()
 
+    /** «Опиши подробно» / «расскажи подробнее». */
+    object Detail : VoiceCommand()
+
+    /** «Сколько людей рядом» / «кто передо мной». */
+    object People : VoiceCommand()
+
+    /** «Свет звуком» / «покажи свет звуком» / «где светлее». */
+    object LightTone : VoiceCommand()
+
+    /** «Стоп» — остановить звук света. */
+    object Stop : VoiceCommand()
+
     /** «Запомни ключи здесь» / «я положил очки на стол»: item — вещь, place — что человек сказал про место. */
     data class Remember(val item: String, val place: String) : VoiceCommand()
 
@@ -60,6 +72,12 @@ object VoiceCommands {
 
         fun has(vararg keys: String) = keys.any { text.contains(it) }
 
+        if (has("свет звуком", "звуком свет", "звук света", "тон света", "где светлее", "найди свет", "найти свет", "поищи свет", "измеряй свет", "следи за светом")) return VoiceCommand.LightTone
+        if (text == "стоп" || text == "хватит" || text == "остановись" || text == "выключи звук" || text == "тихо") return VoiceCommand.Stop
+
+        // «Сколько людей» и «опиши подробно» — раньше общего «передо мной»/«что здесь».
+        if (has("сколько людей", "сколько человек", "есть ли люди", "есть ли кто", "люди рядом", "людей рядом", "кто рядом", "кто передо мной", "кто здесь", "кто тут", "люди вокруг")) return VoiceCommand.People
+
         // Цвет и свет — раньше всего: «какого цвета» не должно уйти в поиск, а «где» — в память.
         parseLight(text)?.let { return it }
         parseColor(text)?.let { return it }
@@ -90,6 +108,8 @@ object VoiceCommands {
             )
         ) return VoiceCommand.Inspect
         if (has("истори")) return VoiceCommand.History
+        // «Опиши подробно» — после всех конкретных команд («прочитай подробно чек» остаётся чеком).
+        if (has("подробно", "подробнее", "детально", "в деталях", "расскажи больше")) return VoiceCommand.Detail
         if (has("вокруг", "передо мной", "предмет", "объект", "что тут", "что здесь")) return VoiceCommand.WhatsAround
         return VoiceCommand.Unknown
     }

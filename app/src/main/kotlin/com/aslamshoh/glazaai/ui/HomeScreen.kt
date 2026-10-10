@@ -67,6 +67,9 @@ import com.aslamshoh.glazaai.util.ObjectInfo
 import com.aslamshoh.glazaai.util.ColorAnalyzer
 import com.aslamshoh.glazaai.util.ColorNamer
 import com.aslamshoh.glazaai.util.VoiceCommand
+import com.aslamshoh.glazaai.util.LightTone
+import com.aslamshoh.glazaai.util.LightTonePlayer
+import com.aslamshoh.glazaai.util.PeopleText
 import com.aslamshoh.glazaai.util.VoiceCommands
 import kotlinx.coroutines.launch
 
@@ -96,6 +99,7 @@ fun HomeScreen(
 
     var frameAspect by remember { mutableFloatStateOf(0.75f) }
     val lastFrame = remember { arrayOfNulls<Bitmap>(1) }
+    val lightTone = remember { LightTonePlayer() }
 
     var selected by remember { mutableStateOf<LiveTrack?>(null) }
     var selectedThumb by remember { mutableStateOf<Bitmap?>(null) }
@@ -111,6 +115,7 @@ fun HomeScreen(
             pipeline.onFrame(bitmap)
         }
         onDispose {
+            lightTone.stop()
             controller.release()
             voice.cancel()
             SpeechSynthesizer.stop()
@@ -249,17 +254,86 @@ fun HomeScreen(
         }
     }
 
+    fun handleDetail() {
+        val frame = lastFrame[0]
+        if (busy) return
+        if (frame == null) {
+            SpeechSynthesizer.speak("Камера ещё не дала кадр. Подождите секунду.", SettingsStore.speechRate)
+            return
+        }
+        describePhoto(scope, frame, onBusy = { busy = it }, onError = { localError = it }, detail = true) { result ->
+            selected = null
+            photoCard = result
+        }
+    }
+
+    fun stopLightTone() {
+        lightTone.stop()
+        if (photoCard?.title == "Свет звуком") photoCard = null
+    }
+
+    fun handleLightTone() {
+        if (lightTone.isRunning) { stopLightTone(); return }
+        selected = null
+        photoCard = PhotoCard("Свет звуком", "Чем светлее, тем выше звук. Двигайте телефон, чтобы найти окно или лампу.", null)
+        SpeechSynthesizer.speak(LightTone.INTRO, SettingsStore.speechRate)
+        scope.launch {
+            // дадим договорить подсказку, потом играем
+            kotlinx.coroutines.delay(5500)
+            val card = photoCard
+            if (card != null && card.title == "Свет звуком") {
+                lightTone.start { lastFrame[0]?.let { ColorAnalyzer.meanLuma(it) } }
+            }
+        }
+    }
+
+    fun handlePeople() {
+        val frame = lastFrame[0]
+        if (busy) return
+        if (frame == null) {
+            SpeechSynthesizer.speak("Камера ещё не дала кадр. Подождите секунду.", SettingsStore.speechRate)
+            return
+        }
+        busy = true
+        SpeechSynthesizer.speakQueued("Смотрю, есть ли рядом люди.", SettingsStore.speechRate, true)
+        scope.launch {
+            try {
+                val r = VisionService.peopleNearby(ImageEncoding.dataUrl(frame))
+                val text = PeopleText.speak(r)
+                selected = null
+                photoCard = PhotoCard("Люди рядом", text, frame)
+                HistoryStore.addEntry("Предметы", "Люди рядом", text, frame)
+                SpeechSynthesizer.speak(text, SettingsStore.speechRate)
+            } catch (e: Exception) {
+                val message = ApiClient.messageFor(e)
+                localError = message
+                SpeechSynthesizer.speak(message, SettingsStore.speechRate)
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     fun listenForCommand() {
         SpeechSynthesizer.stop()
         voice.listen { text ->
             val command = VoiceCommands.parse(text)
             if (command == VoiceCommand.Unknown) {
                 SpeechSynthesizer.speak(
-                    "Не поняла. Скажите, например: найди ключи, запомни ключи здесь, что у меня в руке, какого цвета это, горит ли свет, прочитай чек, навигация или позови волонтёра.",
+                    "Не поняла. Скажите, например: найди ключи, опиши подробно, сколько людей рядом, запомни ключи здесь, что у меня в руке, какого цвета это, горит ли свет, прочитай чек, навигация или позови волонтёра.",
                     SettingsStore.speechRate
                 )
             } else if (command == VoiceCommand.WhatsAround) {
                 pipeline.describeAll()
+            } else if (command == VoiceCommand.LightTone) {
+                handleLightTone()
+            } else if (command == VoiceCommand.Stop) {
+                stopLightTone()
+                SpeechSynthesizer.stop()
+            } else if (command == VoiceCommand.Detail) {
+                handleDetail()
+            } else if (command == VoiceCommand.People) {
+                handlePeople()
             } else if (command is VoiceCommand.ColorOf) {
                 handleColor(command)
             } else if (command == VoiceCommand.Light) {
@@ -358,7 +432,7 @@ fun HomeScreen(
                     onPrimary = { SpeechSynthesizer.speak(card.text, SettingsStore.speechRate) },
                     secondaryLabel = null,
                     onSecondary = {},
-                    onClose = { photoCard = null }
+                    onClose = { if (card.title == "Свет звуком") lightTone.stop(); photoCard = null }
                 )
             } else if (track != null) {
                 val distance = formatMeters(track.distanceM)
@@ -390,7 +464,7 @@ fun HomeScreen(
                         if (frame == null) {
                             localError = "Камера ещё не дала кадр."
                         } else {
-                            describePhoto(scope, frame, onBusy = { busy = it }, onError = { localError = it }) { result ->
+                            describePhoto(scope, frame, onBusy = { busy = it }, onError = { localError = it }, detail = true) { result ->
                                 selected = null
                                 photoCard = result
                             }
@@ -528,12 +602,14 @@ private fun describePhoto(
     bitmap: Bitmap,
     onBusy: (Boolean) -> Unit,
     onError: (String) -> Unit,
+    detail: Boolean = false,
     onResult: (PhotoCard) -> Unit
 ) {
     onBusy(true)
+    if (detail) SpeechSynthesizer.speakQueued("Рассматриваю подробно. Подождите несколько секунд.", SettingsStore.speechRate, true)
     scope.launch {
         try {
-            val r = VisionService.describeScene(ImageEncoding.dataUrl(bitmap))
+            val r = VisionService.describeScene(ImageEncoding.dataUrl(bitmap, maxDimension = if (detail) 1600 else 1280), detail)
             HistoryStore.addEntry("Предметы", r.title, r.description, bitmap)
             SpeechSynthesizer.speak(r.description, SettingsStore.speechRate)
             onResult(PhotoCard(r.title, r.description, bitmap))

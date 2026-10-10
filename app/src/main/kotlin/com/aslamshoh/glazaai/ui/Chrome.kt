@@ -104,6 +104,7 @@ object Routes {
     const val FEEDBACK = "feedback"
     const val INSPECT = "scan/inspect"
     const val HELP = "help"
+    const val SHARED = "shared"
 }
 
 /** Пять вкладок нижнего меню. */

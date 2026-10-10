@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -18,6 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.aslamshoh.glazaai.util.SharedInbox
 import com.aslamshoh.glazaai.util.VoiceCommand
 
 /** Какая вкладка нижнего меню подсвечена на этом маршруте. */
@@ -38,6 +43,17 @@ fun GlazaNavHost() {
     val route = backStackEntry?.destination?.route
     // На экране тарифов нижнего меню нет — как на макете.
     val showBar = route != Routes.PRO
+
+    // «Поделиться» из другого приложения: картинка приходит через SharedInbox, открываем экран описания.
+    var sharedUri by remember { mutableStateOf<Uri?>(null) }
+    val incoming = SharedInbox.pending
+    LaunchedEffect(incoming) {
+        val u = SharedInbox.take()
+        if (u != null) {
+            sharedUri = u
+            navController.navigate(Routes.SHARED) { launchSingleTop = true }
+        }
+    }
 
     Scaffold(
         containerColor = Theme.background,
@@ -145,6 +161,10 @@ fun GlazaNavHost() {
             composable(Routes.MEMORY) { MemoryScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.OFFLINE) { OfflineModelsScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.PRO) { ProScreen(onBack = { navController.popBackStack() }) }
+            composable(Routes.SHARED) {
+                val u = sharedUri
+                if (u != null) SharedImageScreen(uri = u, onBack = { navController.popBackStack() })
+            }
         }
     }
 }
@@ -195,7 +215,7 @@ private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
         VoiceCommand.Feedback -> nav.navigate(Routes.FEEDBACK) { launchSingleTop = true }
         is VoiceCommand.Help -> nav.navigate("${Routes.HELP}?auto=${if (command.volunteer) 1 else 0}") { launchSingleTop = true }
         VoiceCommand.History -> openTab(nav, AppTab.HISTORY)
-        VoiceCommand.WhatsAround, VoiceCommand.Light, is VoiceCommand.ColorOf, VoiceCommand.Unknown -> Unit
+        VoiceCommand.WhatsAround, VoiceCommand.Detail, VoiceCommand.People, VoiceCommand.LightTone, VoiceCommand.Stop, VoiceCommand.Light, is VoiceCommand.ColorOf, VoiceCommand.Unknown -> Unit
         // Память вещей обрабатывает главный экран сам (ему нужен кадр камеры); сюда доходит
         // только запасной вариант «где X», когда X не запомнен, — это обычный поиск камерой.
         is VoiceCommand.Recall -> nav.navigate("${Routes.FIND}?query=${Uri.encode(command.item)}") { launchSingleTop = true }

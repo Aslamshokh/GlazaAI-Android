@@ -13,6 +13,9 @@ data class RecognizedObject(
 
 data class ImageRequestBody(val image: String)
 
+/** Описание сцены: detail = true — подробный рассказ («Подробнее»). */
+data class SceneRequestBody(val image: String, val detail: Boolean = false)
+
 data class OcrRequestBody(val image: String, val language: String)
 
 data class DocumentRequestBody(val image: String, val kind: String)

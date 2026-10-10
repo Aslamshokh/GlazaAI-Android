@@ -96,6 +96,8 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     var reversed by remember { mutableStateOf(false) }
     var uncertainNote by remember { mutableStateOf<String?>(null) }
     var failedRead by remember { mutableStateOf(0) } // растёт при каждой неудаче: автосъёмка ждёт движения камеры
+    var largeText by remember { mutableStateOf<String?>(null) }
+    largeText?.let { LargeTextDialog(it) { largeText = null } }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -310,6 +312,9 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                             explanation = note
                             SpeechSynthesizer.speak(note, SettingsStore.speechRate)
                         }
+                    }
+                    ActionButton("Крупно", modifier = Modifier.fillMaxWidth()) {
+                        largeText = if (tab == 1 && translated != null) translated!! else text
                     }
                     ActionButton("Снять заново", modifier = Modifier.fillMaxWidth()) {
                         original = null

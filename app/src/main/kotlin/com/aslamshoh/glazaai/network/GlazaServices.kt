@@ -5,8 +5,13 @@ import java.net.URLEncoder
 /** Vision API — описание сцены (используется режимом «Предметы»). Путь и формат точно
  * соответствуют glaza-ai-backend/app/routers/vision.py. */
 object VisionService {
-    suspend fun describeScene(imageDataUrl: String): SceneResult =
-        ApiClient.post("/vision/describe-scene", ImageRequestBody(imageDataUrl))
+    suspend fun describeScene(imageDataUrl: String, detail: Boolean = false): SceneResult =
+        if (detail) ApiClient.postSlow("/vision/describe-scene", SceneRequestBody(imageDataUrl, true))
+        else ApiClient.post("/vision/describe-scene", ImageRequestBody(imageDataUrl))
+
+    /** «Сколько людей рядом»: только число и стороны, без распознавания лиц. */
+    suspend fun peopleNearby(imageDataUrl: String): PeopleNearbyResult =
+        ApiClient.post("/vision/people-nearby", ImageRequestBody(imageDataUrl))
 
     /** Один кадр видеопотока для живого режима: backend ведёт трекинг объектов между кадрами
      * (по sessionId) и возвращает направление, расстояние и приоритет каждого. */
