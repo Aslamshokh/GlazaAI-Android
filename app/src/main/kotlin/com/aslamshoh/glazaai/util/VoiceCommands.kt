@@ -52,6 +52,12 @@ sealed class VoiceCommand {
 
     /** «Включён ли свет?» / «горит ли свет в комнате?» / «темно ли?». */
     object Light : VoiceCommand()
+
+    /** «Рядом» / «что под ногами» — ассистент ближней зоны: ступеньки, бордюры, вход, переход. */
+    object Near : VoiceCommand()
+
+    /** Файлы и медиа: kind = photo | graph | handwriting | pdf | video. */
+    data class Media(val kind: String) : VoiceCommand()
     object Unknown : VoiceCommand()
 }
 
@@ -88,6 +94,10 @@ object VoiceCommands {
         // Помощь: «найди волонтёра» — это вызов, а не поиск предмета, поэтому раньше «найди».
         parseHelp(text)?.let { return it }
 
+        if (text == "рядом" || has("режим рядом", "что под ногами", "препятстви", "ступеньк", "бордюр", "пешеходный переход")) {
+            return VoiceCommand.Near
+        }
+
         if (has("найди", "найти", "найдите", "поищи", "ищи", "где ")) {
             val query = text.split(" ").filter { it.isNotBlank() && it !in fillers }.joinToString(" ")
             return VoiceCommand.Find(query)
@@ -96,6 +106,7 @@ object VoiceCommands {
             return VoiceCommand.Navigate(destinationFrom(text))
         }
         if (has("отзыв", "написать разработчик", "обратная связь", "сообщить об ошибке")) return VoiceCommand.Feedback
+        parseMedia(text)?.let { return it }
         if (Regex("(?:^| )(?:чек|чеки|чека|чеке|квитанци|документ|накладн|справк|паспорт)").containsMatchIn(text)) return VoiceCommand.Document
         if (has("qr", "кью", "кю ар", "куар")) return VoiceCommand.Qr
         if (has("купюр", "банкнот", "деньги", "денег", "рубл", "сколько стоит купюра")) return VoiceCommand.Currency
@@ -121,6 +132,18 @@ object VoiceCommands {
         "нужна помощь", "нужна мне помощь", "помогите", "помоги мне", "помоги", "на помощь", "экстренн", "позвони близк",
         "позвонить близк", "позвони родным", "позвони маме", "тревога", "открой помощь", "раздел помощь"
     )
+
+    private fun parseMedia(text: String): VoiceCommand? {
+        fun has(vararg keys: String) = keys.any { text.contains(it) }
+        return when {
+            has("видео", "ролик") -> VoiceCommand.Media("video")
+            has("pdf", "пдф", "пэдээф") -> VoiceCommand.Media("pdf")
+            has("график", "диаграмм", "чертеж", "парабол") -> VoiceCommand.Media("graph")
+            has("рукопис", "почерк", "от руки", "записк") -> VoiceCommand.Media("handwriting")
+            has("опиши фото", "опиши картинку", "опиши изображение", "опиши снимок", "что на фото", "что на картинке") -> VoiceCommand.Media("photo")
+            else -> null
+        }
+    }
 
     private fun parseHelp(text: String): VoiceCommand? {
         if (helpVolunteerWords.any { text.contains(it) }) return VoiceCommand.Help(volunteer = true)

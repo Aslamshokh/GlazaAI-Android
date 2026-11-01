@@ -28,6 +28,11 @@ object SettingsStore {
     private const val KEY_NEURAL_VOICE = "glazaai.neuralVoice"
     private const val KEY_VOICE_GENDER = "glazaai.voiceGender"
     private const val KEY_TESTER_NAME = "glazaai.testerName"
+    private const val KEY_ALLOW_CLOUD = "glazaai.allowCloud"
+    private const val KEY_TABLE_MODE = "glazaai.tableMode"
+    private const val KEY_NEAR_RADIUS = "glazaai.nearRadius"
+    private const val KEY_TUTORIAL = "glazaai.tutorialHints"
+    private const val KEY_SEEN_HINTS = "glazaai.seenHints"
 
     var backendBaseUrl by mutableStateOf("")
         private set
@@ -57,6 +62,26 @@ object SettingsStore {
     var testerName by mutableStateOf("")
         private set
 
+    /** «Умный режим»: рукописный текст, графики, подробное описание фото и видео делает облачный
+     * ИИ — фото уходит во внешний сервис (не сохраняется). По умолчанию выключен: без согласия
+     * пользователя ничего никуда не отправляем, всё остальное работает на своём сервере. */
+    var allowCloud by mutableStateOf(false)
+        private set
+
+    /** Как читать таблицы: "rows" — по строкам (удобнее, по умолчанию), "columns" — по столбцам. */
+    var tableMode by mutableStateOf("rows")
+        private set
+
+    /** Радиус режима «Рядом», метров (2–5): дальше этого приложение молчит. */
+    var nearRadius by mutableFloatStateOf(3f)
+        private set
+
+    /** Обучающие подсказки: короткое «что делает экран и как им пользоваться» при первом открытии. */
+    var tutorialHints by mutableStateOf(true)
+        private set
+
+    private var seenHints: Set<String> = emptySet()
+
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences("glazaai_settings", Context.MODE_PRIVATE)
         backendBaseUrl = prefs.getString(KEY_BACKEND_URL, "") ?: ""
@@ -68,6 +93,45 @@ object SettingsStore {
         neuralVoice = prefs.getBoolean(KEY_NEURAL_VOICE, true)
         voiceGender = prefs.getString(KEY_VOICE_GENDER, "female") ?: "female"
         testerName = prefs.getString(KEY_TESTER_NAME, "") ?: ""
+        allowCloud = prefs.getBoolean(KEY_ALLOW_CLOUD, false)
+        tableMode = prefs.getString(KEY_TABLE_MODE, "rows") ?: "rows"
+        nearRadius = prefs.getFloat(KEY_NEAR_RADIUS, 3f).coerceIn(2f, 5f)
+        tutorialHints = prefs.getBoolean(KEY_TUTORIAL, true)
+        seenHints = prefs.getStringSet(KEY_SEEN_HINTS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun updateAllowCloud(value: Boolean) {
+        allowCloud = value
+        prefs.edit().putBoolean(KEY_ALLOW_CLOUD, value).apply()
+    }
+
+    fun updateTableMode(value: String) {
+        tableMode = if (value == "columns") "columns" else "rows"
+        prefs.edit().putString(KEY_TABLE_MODE, tableMode).apply()
+    }
+
+    fun updateNearRadius(value: Float) {
+        nearRadius = value.coerceIn(2f, 5f)
+        prefs.edit().putFloat(KEY_NEAR_RADIUS, nearRadius).apply()
+    }
+
+    fun updateTutorialHints(value: Boolean) {
+        tutorialHints = value
+        prefs.edit().putBoolean(KEY_TUTORIAL, value).apply()
+    }
+
+    /** true — подсказку экрана ещё не слышали (и подсказки включены); отмечает её услышанной. */
+    fun takeHint(key: String): Boolean {
+        if (!tutorialHints || key in seenHints) return false
+        seenHints = seenHints + key
+        prefs.edit().putStringSet(KEY_SEEN_HINTS, seenHints).apply()
+        return true
+    }
+
+    /** «Послушать подсказки заново». */
+    fun resetHints() {
+        seenHints = emptySet()
+        prefs.edit().remove(KEY_SEEN_HINTS).apply()
     }
 
     fun updateTesterName(value: String) {

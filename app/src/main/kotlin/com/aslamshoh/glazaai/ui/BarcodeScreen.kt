@@ -200,7 +200,7 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
             modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CameraTopBar(title = "Сканер", onBack = onBack)
+            CameraTopBar(title = "Сканер", onBack = onBack, hint = Hints.SCAN)
             ScanModeSwitch(selected = mode, onSelect = onSwitchMode)
         }
 

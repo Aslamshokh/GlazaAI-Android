@@ -28,7 +28,7 @@ import com.aslamshoh.glazaai.util.VoiceCommand
 /** Какая вкладка нижнего меню подсвечена на этом маршруте. */
 private fun tabFor(route: String?): AppTab? = when {
     route == null -> AppTab.HOME
-    route.startsWith(Routes.HOME) || route.startsWith(Routes.FIND) -> AppTab.HOME
+    route.startsWith(Routes.HOME) || route.startsWith(Routes.FIND) || route == Routes.NEAR -> AppTab.HOME
     route.startsWith(Routes.NAV) -> AppTab.NAV
     route.startsWith("scan/") -> AppTab.SCAN
     route == Routes.HISTORY -> AppTab.HISTORY
@@ -127,6 +127,17 @@ fun GlazaNavHost() {
                 )
             }
             composable(
+                route = "${Routes.MEDIA}?kind={kind}",
+                arguments = listOf(navArgument("kind") { type = NavType.StringType; defaultValue = "" })
+            ) { entry ->
+                MediaScreen(
+                    initialKind = entry.arguments?.getString("kind").orEmpty(),
+                    onSwitchMode = { openScanMode(navController, it) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Routes.NEAR) { NearScreen(onBack = { navController.popBackStack() }) }
+            composable(
                 route = "${Routes.FIND}?query={query}",
                 arguments = listOf(navArgument("query") { type = NavType.StringType; defaultValue = "" })
             ) { entry ->
@@ -189,11 +200,13 @@ private fun openChip(nav: NavHostController, chip: HomeChip) {
         HomeChip.CURRENCY -> nav.navigate(Routes.CURRENCY) { launchSingleTop = true }
         HomeChip.HAND -> nav.navigate(Routes.INSPECT) { launchSingleTop = true }
         HomeChip.FIND -> nav.navigate(Routes.FIND) { launchSingleTop = true }
+        HomeChip.NEAR -> nav.navigate(Routes.NEAR) { launchSingleTop = true }
     }
 }
 
 private fun openScanMode(nav: NavHostController, mode: ScanMode) {
-    nav.navigate(mode.route) {
+    val route = if (mode == ScanMode.MEDIA) "${Routes.MEDIA}?kind=" else mode.route
+    nav.navigate(route) {
         popUpTo(Routes.HOME) { inclusive = false }
         launchSingleTop = true
     }
@@ -213,6 +226,8 @@ private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
         VoiceCommand.Document -> nav.navigate(Routes.DOCUMENT) { launchSingleTop = true }
         VoiceCommand.Inspect -> nav.navigate(Routes.INSPECT) { launchSingleTop = true }
         VoiceCommand.Feedback -> nav.navigate(Routes.FEEDBACK) { launchSingleTop = true }
+        VoiceCommand.Near -> nav.navigate(Routes.NEAR) { launchSingleTop = true }
+        is VoiceCommand.Media -> nav.navigate("${Routes.MEDIA}?kind=${command.kind}") { launchSingleTop = true }
         is VoiceCommand.Help -> nav.navigate("${Routes.HELP}?auto=${if (command.volunteer) 1 else 0}") { launchSingleTop = true }
         VoiceCommand.History -> openTab(nav, AppTab.HISTORY)
         VoiceCommand.WhatsAround, VoiceCommand.Detail, VoiceCommand.People, VoiceCommand.LightTone, VoiceCommand.Stop, VoiceCommand.Light, is VoiceCommand.ColorOf, VoiceCommand.Unknown -> Unit

@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.CenterFocusStrong
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Image
@@ -105,6 +107,8 @@ object Routes {
     const val INSPECT = "scan/inspect"
     const val HELP = "help"
     const val SHARED = "shared"
+    const val MEDIA = "scan/media"
+    const val NEAR = "near"
 }
 
 /** Пять вкладок нижнего меню. */
@@ -151,7 +155,8 @@ enum class HomeChip(val label: String, val icon: ImageVector) {
     PRODUCT("Товар", Icons.Outlined.ShoppingBag),
     CURRENCY("Валюта", Icons.Outlined.Payments),
     HAND("В руке", Icons.Outlined.PanTool),
-    FIND("Поиск", Icons.Outlined.Search)
+    FIND("Поиск", Icons.Outlined.Search),
+    NEAR("Рядом", Icons.AutoMirrored.Outlined.DirectionsWalk)
 }
 
 @Composable
@@ -201,7 +206,8 @@ enum class ScanMode(val label: String, val route: String) {
     CURRENCY("Валюта", Routes.CURRENCY),
     QR("QR", Routes.QR),
     DOC("Чек", Routes.DOCUMENT),
-    HAND("В руке", Routes.INSPECT)
+    HAND("В руке", Routes.INSPECT),
+    MEDIA("Файлы", Routes.MEDIA)
 }
 
 @Composable
@@ -274,7 +280,8 @@ fun CameraTopBar(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     onSettings: (() -> Unit)? = null,
-    onHelp: (() -> Unit)? = null
+    onHelp: (() -> Unit)? = null,
+    hint: String? = null
 ) {
     Box(
         modifier = modifier
@@ -301,9 +308,19 @@ fun CameraTopBar(
                 Icon(Icons.Outlined.SupportAgent, contentDescription = "Помощь: позвать волонтёра или близкого", tint = Color.White)
             }
         }
-        if (onSettings != null) {
-            IconButton(onClick = onSettings, modifier = Modifier.align(Alignment.CenterEnd)) {
-                Icon(Icons.Outlined.Settings, contentDescription = "Настройки", tint = Color.White)
+        Row(modifier = Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
+            if (hint != null) {
+                // Обучающий режим: «что делает этот экран и как им пользоваться». При первом
+                // открытии подсказка звучит сама (если не выключена в настройках).
+                LaunchedEffect(hint) { speakHintOnce(title, hint) }
+                IconButton(onClick = { speakHint(hint) }) {
+                    Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = "Как пользоваться: $title", tint = Color.White)
+                }
+            }
+            if (onSettings != null) {
+                IconButton(onClick = onSettings) {
+                    Icon(Icons.Outlined.Settings, contentDescription = "Настройки", tint = Color.White)
+                }
             }
         }
     }

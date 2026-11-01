@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -151,6 +153,7 @@ internal fun AssistPill(label: String, on: Boolean, modifier: Modifier = Modifie
             .heightIn(min = 44.dp)
             .clip(RoundedCornerShape(50))
             .background(if (on) Theme.accentSoft else Theme.surfaceAlt)
+            .semantics { stateDescription = if (on) "включено" else "выключено" }
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center

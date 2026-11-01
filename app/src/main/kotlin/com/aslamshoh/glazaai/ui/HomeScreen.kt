@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -314,13 +315,11 @@ fun HomeScreen(
         }
     }
 
-    fun listenForCommand() {
-        SpeechSynthesizer.stop()
-        voice.listen { text ->
+    fun runCommand(text: String?) {
             val command = VoiceCommands.parse(text)
             if (command == VoiceCommand.Unknown) {
                 SpeechSynthesizer.speak(
-                    "Не поняла. Скажите, например: найди ключи, опиши подробно, сколько людей рядом, запомни ключи здесь, что у меня в руке, какого цвета это, горит ли свет, прочитай чек, навигация или позови волонтёра.",
+                    "Не поняла. Скажите, например: найди ключи, опиши подробно, сколько людей рядом, запомни ключи здесь, что у меня в руке, какого цвета это, горит ли свет, прочитай чек, рядом, опиши видео, прочитай PDF, навигация или позови волонтёра.",
                     SettingsStore.speechRate
                 )
             } else if (command == VoiceCommand.WhatsAround) {
@@ -345,7 +344,15 @@ fun HomeScreen(
             } else {
                 onVoiceCommand(command)
             }
-        }
+    }
+
+    fun listenForCommand() {
+        SpeechSynthesizer.stop()
+        voice.listen { text -> runCommand(text) }
+    }
+    var showTextCommand by remember { mutableStateOf(false) }
+    if (showTextCommand) {
+        TextCommandDialog(onDismiss = { showTextCommand = false }) { runCommand(it) }
     }
     val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasAudio = granted
@@ -391,6 +398,7 @@ fun HomeScreen(
             title = "EYES AI",
             onSettings = onSettings,
             onHelp = onHelp,
+            hint = Hints.HOME,
             modifier = Modifier.align(Alignment.TopCenter)
         )
 
@@ -525,6 +533,13 @@ fun HomeScreen(
                         if (!hasAudio) audioLauncher.launch(Manifest.permission.RECORD_AUDIO) else listenForCommand()
                     },
                     container = if (voice.listening) Theme.accent else Color(0xCC1A2540)
+                )
+                // Второй способ ввода: текстом (брайлевская или обычная клавиатура) — не все пользуются голосом.
+                CircleButton(
+                    icon = Icons.Outlined.Keyboard,
+                    description = "Ввести команду текстом",
+                    onClick = { showTextCommand = true },
+                    container = Color(0xCC1A2540)
                 )
             }
         }

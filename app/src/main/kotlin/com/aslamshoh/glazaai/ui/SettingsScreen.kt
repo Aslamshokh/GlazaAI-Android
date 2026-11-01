@@ -23,8 +23,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
@@ -101,6 +99,65 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
             )
         }
 
+        SettingsSection(title = "Умный режим и приватность") {
+            ToggleRow(
+                label = "Умный режим (облачный ИИ)",
+                checked = SettingsStore.allowCloud,
+                description = "Графики, рукописный текст, подробное описание фото и видео."
+            ) { SettingsStore.updateAllowCloud(it) }
+            Text(
+                "Куда уходят фото. По умолчанию всё распознаётся на вашем сервере: текст, таблицы, PDF, купюры, предметы, " +
+                    "препятствия. Фото не сохраняются и не попадают ни в какие базы. Только если включить умный режим, фото для " +
+                    "сложных задач отправляется во внешний ИИ-сервис — для одного ответа, без сохранения.",
+                color = Theme.textSecondary,
+                fontSize = 12.sp
+            )
+        }
+
+        SettingsSection(title = "Чтение") {
+            Text("Таблицы читать", color = Theme.textPrimary, fontSize = 14.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                AssistPill("По строкам", on = SettingsStore.tableMode == "rows", modifier = Modifier.weight(1f)) {
+                    SettingsStore.updateTableMode("rows")
+                }
+                AssistPill("По столбцам", on = SettingsStore.tableMode == "columns", modifier = Modifier.weight(1f)) {
+                    SettingsStore.updateTableMode("columns")
+                }
+            }
+            Text(
+                "По строкам: сначала названия столбцов, потом «строка 1: имя — Иван, возраст — 12». Переключить можно и прямо при чтении.",
+                color = Theme.textSecondary,
+                fontSize = 12.sp
+            )
+        }
+
+        SettingsSection(title = "Режим «Рядом»") {
+            var radius by remember { mutableStateOf(SettingsStore.nearRadius) }
+            Text("Радиус: ${radius.toInt()} м — дальше этого приложение молчит", color = Theme.textPrimary, fontSize = 14.sp)
+            Slider(
+                value = radius,
+                onValueChange = {
+                    radius = it
+                    SettingsStore.updateNearRadius(it)
+                },
+                valueRange = 2f..5f,
+                steps = 2,
+                colors = SliderDefaults.colors(thumbColor = Theme.accent, activeTrackColor = Theme.accent)
+            )
+        }
+
+        SettingsSection(title = "Обучение") {
+            ToggleRow(
+                label = "Обучающие подсказки",
+                checked = SettingsStore.tutorialHints,
+                description = "При первом открытии экрана — что он делает и как им пользоваться."
+            ) { SettingsStore.updateTutorialHints(it) }
+            TextButton(onClick = {
+                SettingsStore.resetHints()
+                SpeechSynthesizer.speak("Подсказки прозвучат снова при открытии каждого экрана.", SettingsStore.speechRate)
+            }) { Text("Послушать подсказки заново", color = Theme.accent) }
+        }
+
         SettingsSection(title = "Речь") {
             var rate by remember { mutableStateOf(SettingsStore.speechRate) }
             Text("Скорость речи: ${roundTo1(rate)}×", color = Theme.textPrimary, fontSize = 14.sp)
@@ -123,25 +180,14 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
             var haptics by remember { mutableStateOf(SettingsStore.hapticsEnabled) }
             var highContrast by remember { mutableStateOf(SettingsStore.highContrast) }
 
-            SettingsRow(label = "Вибрация") {
-                Switch(
-                    checked = haptics,
-                    onCheckedChange = {
-                        haptics = it
-                        SettingsStore.updateHapticsEnabled(it)
-                    },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Theme.accent)
-                )
+            // Вся строка — один переключатель с подписью для TalkBack / VoiceOver.
+            ToggleRow(label = "Вибрация", checked = haptics) {
+                haptics = it
+                SettingsStore.updateHapticsEnabled(it)
             }
-            SettingsRow(label = "Высокий контраст") {
-                Switch(
-                    checked = highContrast,
-                    onCheckedChange = {
-                        highContrast = it
-                        SettingsStore.updateHighContrast(it)
-                    },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Theme.accent)
-                )
+            ToggleRow(label = "Высокий контраст", checked = highContrast) {
+                highContrast = it
+                SettingsStore.updateHighContrast(it)
             }
         }
 
@@ -191,18 +237,6 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
         ) {
             content()
         }
-    }
-}
-
-@Composable
-private fun SettingsRow(label: String, trailing: @Composable () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, color = Theme.textPrimary, fontSize = 14.sp)
-        trailing()
     }
 }
 

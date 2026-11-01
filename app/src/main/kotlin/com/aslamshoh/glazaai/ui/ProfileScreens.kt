@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -290,21 +291,11 @@ fun ProfileScreen(
                         steps = 14,
                         colors = SliderDefaults.colors(thumbColor = Theme.accent, activeTrackColor = Theme.accent)
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Естественный голос", color = Color.White, fontSize = 15.sp)
-                            Text(
-                                "Озвучку делает backend на ноутбуке, нужен интернет. Без связи говорит встроенный голос телефона.",
-                                color = Theme.textSecondary,
-                                fontSize = 12.sp
-                            )
-                        }
-                        Switch(
-                            checked = SettingsStore.neuralVoice,
-                            onCheckedChange = { SettingsStore.updateNeuralVoice(it) },
-                            colors = SwitchDefaults.colors(checkedTrackColor = Theme.accent)
-                        )
-                    }
+                    ToggleRow(
+                        label = "Естественный голос",
+                        checked = SettingsStore.neuralVoice,
+                        description = "Озвучку делает backend на ноутбуке, нужен интернет. Без связи говорит встроенный голос телефона."
+                    ) { SettingsStore.updateNeuralVoice(it) }
                     if (SettingsStore.neuralVoice) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -385,10 +376,12 @@ private fun ProfileRow(icon: ImageVector, label: String, value: String?, onClick
 
 @Composable
 private fun SwitchRow(icon: ImageVector, label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    // Вся строка — один переключатель с подписью (TalkBack: «<название>, выключатель, включено»).
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 54.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -397,7 +390,7 @@ private fun SwitchRow(icon: ImageVector, label: String, checked: Boolean, onChan
         Text(label, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
         Switch(
             checked = checked,
-            onCheckedChange = onChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(checkedTrackColor = Theme.accent)
         )
     }
@@ -567,7 +560,7 @@ fun ProScreen(onBack: () -> Unit) {
             ) {
                 listOf(
                     "Безлимитные распознавания",
-                    "Продвинутая навигация",
+                    "Умный режим: фото, графики, рукопись, видео",
                     "Поиск предметов",
                     "Анализ документов",
                     "Перевод через камеру",
@@ -588,15 +581,15 @@ fun ProScreen(onBack: () -> Unit) {
             ) {
                 PlanCard(
                     title = "1 месяц",
-                    price = "399 ₽/мес.",
+                    price = "499 ₽/мес.",
                     note = null,
                     selected = !yearly,
                     modifier = Modifier.weight(1f)
                 ) { yearly = false }
                 PlanCard(
                     title = "12 месяцев",
-                    price = "3 490 ₽/год",
-                    note = "(экономия 27%)",
+                    price = "4 990 ₽/год",
+                    note = "(экономия 17%)",
                     selected = yearly,
                     modifier = Modifier.weight(1f)
                 ) { yearly = true }
@@ -614,7 +607,7 @@ fun ProScreen(onBack: () -> Unit) {
                 Text("Попробовать 3 дня бесплатно", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             }
             Text(
-                "Отмена в любой момент. Затем " + if (yearly) "3 490 ₽/год." else "399 ₽/мес.",
+                "Отмена в любой момент. Затем " + if (yearly) "4 990 ₽/год." else "499 ₽/мес.",
                 color = Color(0xFFB9A8DB),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center

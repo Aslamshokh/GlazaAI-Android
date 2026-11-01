@@ -170,7 +170,7 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
             modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CameraTopBar(title = "Чек и документы", onBack = onBack)
+            CameraTopBar(title = "Чек и документы", onBack = onBack, hint = Hints.DOCUMENT)
             ScanModeSwitch(selected = ScanMode.DOC, onSelect = onSwitchMode)
         }
 

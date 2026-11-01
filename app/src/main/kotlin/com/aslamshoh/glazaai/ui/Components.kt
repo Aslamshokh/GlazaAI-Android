@@ -27,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +61,7 @@ fun ModeTile(mode: RecognitionMode, onClick: () -> Unit) {
             .aspectRatio(1.05f)
             .clip(RoundedCornerShape(Theme.cornerRadiusMedium))
             .background(Theme.surface)
-            .clickable(onClick = onClick)
+            .clickable(onClickLabel = "Открыть: ${mode.title}", role = Role.Button, onClick = onClick)
             .padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
@@ -147,13 +150,15 @@ fun ResultCard(
 }
 
 @Composable
-fun ShutterButton(isBusy: Boolean, onClick: () -> Unit) {
+fun ShutterButton(isBusy: Boolean, label: String = "Сделать снимок", onClick: () -> Unit) {
+    // У кнопки обязательно есть подпись для TalkBack — иначе диктор говорит просто «кнопка».
     Box(
         modifier = Modifier
             .size(72.dp)
             .clip(CircleShape)
             .background(if (isBusy) Theme.surfaceAlt else Theme.accent)
-            .clickable(enabled = !isBusy, onClick = onClick),
+            .semantics { contentDescription = if (isBusy) "Обрабатываю, подождите" else label }
+            .clickable(enabled = !isBusy, onClickLabel = label, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (isBusy) {

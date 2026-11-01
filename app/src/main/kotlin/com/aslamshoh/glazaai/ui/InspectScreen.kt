@@ -126,7 +126,7 @@ fun InspectScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
             modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CameraTopBar(title = "Что в руке", onBack = onBack)
+            CameraTopBar(title = "Что в руке", onBack = onBack, hint = Hints.INSPECT)
             ScanModeSwitch(selected = ScanMode.HAND, onSelect = onSwitchMode)
         }
 
