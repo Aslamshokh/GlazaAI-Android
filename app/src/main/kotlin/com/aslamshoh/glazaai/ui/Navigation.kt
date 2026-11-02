@@ -28,11 +28,11 @@ import com.aslamshoh.glazaai.util.VoiceCommand
 /** Какая вкладка нижнего меню подсвечена на этом маршруте. */
 private fun tabFor(route: String?): AppTab? = when {
     route == null -> AppTab.HOME
-    route.startsWith(Routes.HOME) || route.startsWith(Routes.FIND) || route == Routes.NEAR -> AppTab.HOME
-    route.startsWith(Routes.NAV) -> AppTab.NAV
+    route.startsWith(Routes.HOME) || route.startsWith(Routes.FIND) -> AppTab.HOME
+    route == Routes.NEAR -> AppTab.NEAR
     route.startsWith("scan/") -> AppTab.SCAN
     route == Routes.HISTORY -> AppTab.HISTORY
-    route.startsWith(Routes.HELP) || route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO || route == Routes.MEMORY || route == Routes.FEEDBACK -> AppTab.PROFILE
+    route.startsWith(Routes.HELP) || route == Routes.PROFILE || route == Routes.SETTINGS || route == Routes.OFFLINE || route == Routes.PRO || route == Routes.FEEDBACK -> AppTab.PROFILE
     else -> null
 }
 
@@ -82,22 +82,9 @@ fun GlazaNavHost() {
                     onVoiceCommand = { command -> openVoiceCommand(navController, command) }
                 )
             }
-            composable(
-                route = "${Routes.NAV}?dest={dest}",
-                arguments = listOf(navArgument("dest") { type = NavType.StringType; defaultValue = "" })
-            ) { entry ->
-                NavigationScreen(initialDestination = entry.arguments?.getString("dest").orEmpty())
-            }
             composable(Routes.BARCODE) {
                 BarcodeScreen(
                     mode = ScanMode.PRODUCT,
-                    onSwitchMode = { openScanMode(navController, it) },
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Routes.QR) {
-                BarcodeScreen(
-                    mode = ScanMode.QR,
                     onSwitchMode = { openScanMode(navController, it) },
                     onBack = { navController.popBackStack() }
                 )
@@ -152,7 +139,6 @@ fun GlazaNavHost() {
                     onOpenHistory = { openTab(navController, AppTab.HISTORY) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenOffline = { navController.navigate(Routes.OFFLINE) },
-                    onOpenMemory = { navController.navigate(Routes.MEMORY) },
                     onOpenFeedback = { navController.navigate(Routes.FEEDBACK) },
                     onOpenHelp = { navController.navigate("${Routes.HELP}?auto=0") { launchSingleTop = true } },
                     onOpenPro = { navController.navigate(Routes.PRO) }
@@ -169,7 +155,6 @@ fun GlazaNavHost() {
             }
             composable(Routes.SETTINGS) { SettingsScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.FEEDBACK) { FeedbackScreen(onBack = { navController.popBackStack() }) }
-            composable(Routes.MEMORY) { MemoryScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.OFFLINE) { OfflineModelsScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.PRO) { ProScreen(onBack = { navController.popBackStack() }) }
             composable(Routes.SHARED) {
@@ -200,7 +185,6 @@ private fun openChip(nav: NavHostController, chip: HomeChip) {
         HomeChip.CURRENCY -> nav.navigate(Routes.CURRENCY) { launchSingleTop = true }
         HomeChip.HAND -> nav.navigate(Routes.INSPECT) { launchSingleTop = true }
         HomeChip.FIND -> nav.navigate(Routes.FIND) { launchSingleTop = true }
-        HomeChip.NEAR -> nav.navigate(Routes.NEAR) { launchSingleTop = true }
     }
 }
 
@@ -215,25 +199,16 @@ private fun openScanMode(nav: NavHostController, mode: ScanMode) {
 private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
     when (command) {
         is VoiceCommand.Find -> nav.navigate("${Routes.FIND}?query=${Uri.encode(command.query)}") { launchSingleTop = true }
-        is VoiceCommand.Navigate -> nav.navigate("${Routes.NAV}?dest=${Uri.encode(command.destination.orEmpty())}") {
-            popUpTo(Routes.HOME) { inclusive = false }
-            launchSingleTop = true
-        }
         VoiceCommand.ReadText -> nav.navigate(Routes.TEXT) { launchSingleTop = true }
         VoiceCommand.Currency -> nav.navigate(Routes.CURRENCY) { launchSingleTop = true }
         VoiceCommand.Product -> nav.navigate(Routes.BARCODE) { launchSingleTop = true }
-        VoiceCommand.Qr -> nav.navigate(Routes.QR) { launchSingleTop = true }
         VoiceCommand.Document -> nav.navigate(Routes.DOCUMENT) { launchSingleTop = true }
         VoiceCommand.Inspect -> nav.navigate(Routes.INSPECT) { launchSingleTop = true }
         VoiceCommand.Feedback -> nav.navigate(Routes.FEEDBACK) { launchSingleTop = true }
-        VoiceCommand.Near -> nav.navigate(Routes.NEAR) { launchSingleTop = true }
+        VoiceCommand.Near -> openTab(nav, AppTab.NEAR)
         is VoiceCommand.Media -> nav.navigate("${Routes.MEDIA}?kind=${command.kind}") { launchSingleTop = true }
         is VoiceCommand.Help -> nav.navigate("${Routes.HELP}?auto=${if (command.volunteer) 1 else 0}") { launchSingleTop = true }
         VoiceCommand.History -> openTab(nav, AppTab.HISTORY)
-        VoiceCommand.WhatsAround, VoiceCommand.Detail, VoiceCommand.People, VoiceCommand.LightTone, VoiceCommand.Stop, VoiceCommand.Light, is VoiceCommand.ColorOf, VoiceCommand.Unknown -> Unit
-        // Память вещей обрабатывает главный экран сам (ему нужен кадр камеры); сюда доходит
-        // только запасной вариант «где X», когда X не запомнен, — это обычный поиск камерой.
-        is VoiceCommand.Recall -> nav.navigate("${Routes.FIND}?query=${Uri.encode(command.item)}") { launchSingleTop = true }
-        is VoiceCommand.Remember, is VoiceCommand.Forget, VoiceCommand.MemoryList -> nav.navigate(Routes.MEMORY) { launchSingleTop = true }
+        VoiceCommand.WhatsAround, VoiceCommand.Detail, VoiceCommand.People, VoiceCommand.Stop, is VoiceCommand.ColorOf, VoiceCommand.Unknown -> Unit
     }
 }

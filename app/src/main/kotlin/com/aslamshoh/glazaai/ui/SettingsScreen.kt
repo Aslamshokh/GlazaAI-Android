@@ -38,7 +38,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aslamshoh.glazaai.network.ApiClient
+import com.aslamshoh.glazaai.network.HealthService
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import com.aslamshoh.glazaai.store.HistoryStore
 import com.aslamshoh.glazaai.store.SettingsStore
 import kotlin.math.round
@@ -73,7 +80,7 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
                     backendUrl = it
                     SettingsStore.updateBackendBaseUrl(it)
                 },
-                label = { Text("https://ваш-адрес.например.trycloudflare.com") },
+                label = { Text("Адрес сервера, например http://192.168.1.69:8000") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 colors = fieldColors(),
@@ -90,6 +97,29 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
                 colors = fieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
+            var checking by remember { mutableStateOf(false) }
+            var checkResult by remember { mutableStateOf<String?>(null) }
+            val scope = rememberCoroutineScope()
+            Button(
+                onClick = {
+                    checking = true
+                    checkResult = null
+                    scope.launch {
+                        val text = try {
+                            HealthService.check()
+                        } catch (e: Exception) {
+                            ApiClient.messageFor(e)
+                        }
+                        checkResult = text
+                        checking = false
+                        SpeechSynthesizer.speak(text, SettingsStore.speechRate)
+                    }
+                },
+                enabled = !checking
+            ) { Text(if (checking) "Проверяю…" else "Проверить связь") }
+            checkResult?.let {
+                Text(it, color = Theme.textPrimary, fontSize = 13.sp, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            }
             Text(
                 "Тот же backend, что использует web- и iOS-версии EYES AI (glaza-ai-backend). " +
                     "Укажите адрес сервера — локальный (http://192.168.х.х:8000) или через туннель " +

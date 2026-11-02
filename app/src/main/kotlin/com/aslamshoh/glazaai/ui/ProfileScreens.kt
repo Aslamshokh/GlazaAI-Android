@@ -27,7 +27,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.WorkspacePremium
-import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.SupportAgent
 import androidx.compose.material.icons.outlined.CloudDownload
@@ -88,7 +87,6 @@ fun ProfileScreen(
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenOffline: () -> Unit,
-    onOpenMemory: () -> Unit,
     onOpenFeedback: () -> Unit,
     onOpenHelp: () -> Unit,
     onOpenPro: () -> Unit
@@ -196,8 +194,6 @@ fun ProfileScreen(
                 .background(Theme.surface)
         ) {
             ProfileRow(Icons.Outlined.History, "История", null, onClick = onOpenHistory)
-            HorizontalDivider(color = Theme.divider)
-            ProfileRow(Icons.Outlined.Bookmarks, "Память вещей", null, onClick = onOpenMemory)
             HorizontalDivider(color = Theme.divider)
             ProfileRow(Icons.Outlined.SupportAgent, "Помощь: волонтёр и близкие", null, onClick = onOpenHelp)
             HorizontalDivider(color = Theme.divider)

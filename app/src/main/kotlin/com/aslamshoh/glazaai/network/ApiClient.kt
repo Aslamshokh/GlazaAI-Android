@@ -15,8 +15,12 @@ import java.util.concurrent.TimeUnit
  * и тексты совпадали на обеих платформах. */
 sealed class ApiException(message: String) : Exception(message) {
     object NotConfigured : ApiException("Адрес backend не настроен. Откройте Настройки и укажите адрес сервера.")
-    object Network : ApiException("Не удалось связаться с backend. Проверьте, что сервер запущен и доступен.")
-    class Server(val status: Int, val msg: String) : ApiException(msg)
+    object Network : ApiException(
+        "Нет связи с сервером. Проверьте, что сервер на ноутбуке запущен и телефон в той же сети Wi-Fi."
+    )
+    class Server(val status: Int, val msg: String) : ApiException(
+        if (status == 401) "Сервер не принял ключ доступа. Проверьте X-API-Key в настройках." else msg
+    )
     object Decoding : ApiException("Backend вернул неожиданный ответ.")
     object InvalidUrl : ApiException("Некорректный адрес backend в Настройках.")
 }
@@ -42,7 +46,9 @@ object ApiClient {
     fun buildUrl(path: String): String {
         val base = SettingsStore.backendBaseUrl.trim()
         if (base.isEmpty()) throw ApiException.NotConfigured
-        val normalized = if (base.endsWith("/")) base.dropLast(1) else base
+        // Частые ошибки ввода: пробелы, забытый http://, слэш в конце.
+        var normalized = base.replace(" ", "").trimEnd('/')
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) normalized = "http://$normalized"
         val url = normalized + path
         if (!url.startsWith("http://") && !url.startsWith("https://")) throw ApiException.InvalidUrl
         return url

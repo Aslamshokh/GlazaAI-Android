@@ -150,8 +150,7 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
     LaunchedEffect(hasCamera) {
         if (hasCamera) {
             SpeechSynthesizer.speakQueued(
-                if (mode == ScanMode.QR) "Наведите камеру на QR-код и двигайте телефон медленно. Услышите сигнал, когда код найден."
-                else "Наведите камеру на штрихкод товара и двигайте телефон медленно. Услышите сигнал, когда код найден.",
+                "Наведите камеру на штрихкод товара или QR-код и двигайте телефон медленно. Услышите сигнал, когда код найден.",
                 SettingsStore.speechRate,
                 false
             )
@@ -186,8 +185,8 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
                 BracketFrame(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .fillMaxWidth(if (mode == ScanMode.QR) 0.62f else 0.84f)
-                        .aspectRatio(if (mode == ScanMode.QR) 1f else 1.8f),
+                        .fillMaxWidth(0.84f)
+                        .aspectRatio(1.8f),
                     color = Theme.accent
                 )
             }
@@ -220,7 +219,7 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
                     ) { controller.setTorch(!controller.torchOn) }
                 }
                 Text(
-                    if (mode == ScanMode.QR) "Наведите камеру на QR-код" else "Наведите камеру на штрих-код",
+                    "Наведите камеру на штрих-код или QR-код",
                     color = Color.White,
                     fontSize = 14.sp,
                     modifier = Modifier

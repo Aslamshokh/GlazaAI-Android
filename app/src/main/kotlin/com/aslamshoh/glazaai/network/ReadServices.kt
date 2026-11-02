@@ -183,3 +183,32 @@ object NearService {
     suspend fun frame(imageDataUrl: String, sessionId: String, radiusM: Float): NearFrameResult =
         ApiClient.post("/vision/near-frame", NearFrameRequestBody(imageDataUrl, sessionId, radiusM))
 }
+
+// ---------- Проверка связи ----------
+
+data class HealthResult(
+    val status: String?,
+    val aiProvider: String?,
+    val aiKeyConfigured: Boolean?,
+    val backendAuthEnabled: Boolean?,
+    val smartProvider: String?
+)
+
+object HealthService {
+    /** /health не требует ключа, поэтому ключ проверяем отдельно — любым защищённым запросом. */
+    suspend fun check(): String {
+        val h: HealthResult = ApiClient.get("/health")
+        if (h.status != "ok") return "Сервер ответил, но работает с ошибкой."
+        if (h.backendAuthEnabled == true) {
+            try {
+                ApiClient.get<Capabilities>("/describe/capabilities")
+            } catch (e: ApiException.Server) {
+                if (e.status == 401) return "Сервер на связи, но ключ доступа неверный. Проверьте X-API-Key."
+                if (e.status != 404) throw e
+            }
+        }
+        val smart = if (h.smartProvider.isNullOrBlank() || h.smartProvider == "none") "умный режим на сервере не настроен"
+        else "умный режим доступен"
+        return "Связь с сервером есть, всё работает. Распознавание: ${if (h.aiProvider == "local") "на вашем сервере" else h.aiProvider}, $smart."
+    }
+}
