@@ -200,13 +200,13 @@ fun InspectScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         ActionButton("Озвучить", icon = Icons.Filled.VolumeUp, filled = true, modifier = Modifier.weight(1f)) {
                             SpeechSynthesizer.speak(current.description, SettingsStore.speechRate)
                         }
-                        ActionButton("Прочитать надпись", modifier = Modifier.weight(1f)) { onSwitchMode(ScanMode.TEXT) }
-                    }
-                    ActionButton("Снять заново", modifier = Modifier.fillMaxWidth()) {
-                        result = null
-                        snapshot = null
-                        error = null
-                        SpeechSynthesizer.stop()
+                        ActionButton("Надпись", modifier = Modifier.weight(1f)) { onSwitchMode(ScanMode.TEXT) }
+                        ActionButton("Заново", modifier = Modifier.weight(1f)) {
+                            result = null
+                            snapshot = null
+                            error = null
+                            SpeechSynthesizer.stop()
+                        }
                     }
                 }
             }

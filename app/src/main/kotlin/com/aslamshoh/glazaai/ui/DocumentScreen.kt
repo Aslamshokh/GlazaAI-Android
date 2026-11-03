@@ -266,7 +266,7 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                                 SpeechSynthesizer.speak(DocumentText.fields(current), SettingsStore.speechRate)
                             }
                         }
-                        ActionButton("Копировать", icon = Icons.Filled.ContentCopy, modifier = Modifier.weight(1f)) {
+                        ActionButton("Копия", icon = Icons.Filled.ContentCopy, modifier = Modifier.weight(1f)) {
                             clipboard.setText(AnnotatedString(current.recognizedText.orEmpty().ifBlank { DocumentText.readAll(current) }))
                             Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
                         }
@@ -275,7 +275,7 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         Text(a, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     }
                     ActionButton(
-                        if (voice.listening) "Слушаю…" else "Спросить про документ",
+                        if (voice.listening) "Слушаю…" else "Спросить голосом",
                         icon = Icons.Filled.Mic,
                         filled = true,
                         modifier = Modifier.fillMaxWidth()
@@ -285,15 +285,17 @@ fun DocumentScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                             audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         } else ask(current)
                     }
-                    ActionButton("Крупно", modifier = Modifier.fillMaxWidth()) {
-                        largeText = current.recognizedText.orEmpty().ifBlank { DocumentText.readAll(current) }
-                    }
-                    ActionButton("Снять заново", modifier = Modifier.fillMaxWidth()) {
-                        answer = null
-                        result = null
-                        snapshot = null
-                        error = null
-                        SpeechSynthesizer.stop()
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        ActionButton("Крупно", modifier = Modifier.weight(1f)) {
+                            largeText = current.recognizedText.orEmpty().ifBlank { DocumentText.readAll(current) }
+                        }
+                        ActionButton("Заново", modifier = Modifier.weight(1f)) {
+                            answer = null
+                            result = null
+                            snapshot = null
+                            error = null
+                            SpeechSynthesizer.stop()
+                        }
                     }
                 }
             }

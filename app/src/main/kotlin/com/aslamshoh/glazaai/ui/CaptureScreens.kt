@@ -349,7 +349,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         }
                     }
                     if (tab == 0 && !hasTable && lastDataUrl != null) {
-                        ActionButton(if (busy) "Ищу таблицу…" else "Это таблица", enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                        ActionButton(if (busy) "Ищу таблицу…" else "Прочитать как таблицу", enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                             val url = lastDataUrl ?: return@ActionButton
                             busy = true
                             SpeechSynthesizer.speak("Ищу таблицу…", SettingsStore.speechRate)
@@ -403,24 +403,25 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                             modifier = Modifier.weight(1f)
                         ) { runTranslation() }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        ActionButton("Копировать", icon = Icons.Filled.ContentCopy, modifier = Modifier.weight(1f)) {
+                    // «Объяснить» показываем, только если в справочнике есть пояснение к этой надписи.
+                    val glossaryNote = remember(text) { SignGlossary.explain(text) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        ActionButton("Копия", icon = Icons.Filled.ContentCopy, modifier = Modifier.weight(1f)) {
                             val current = if (tab == 1 && translated != null) translated!! else text
                             clipboard.setText(AnnotatedString(current))
                             Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
+                            SpeechSynthesizer.speak("Скопировано", SettingsStore.speechRate)
                         }
-                        ActionButton("Объяснить", icon = Icons.Outlined.Info, modifier = Modifier.weight(1f)) {
-                            val note = SignGlossary.explain(text)
-                                ?: "Смысл этой надписи приложение объяснить не может: для этого нужен облачный ИИ, " +
-                                "его в приложении пока нет. Могу перевести надпись и прочитать её вслух."
-                            explanation = note
-                            SpeechSynthesizer.speak(note, SettingsStore.speechRate)
+                        if (glossaryNote != null) {
+                            ActionButton("Смысл", icon = Icons.Outlined.Info, modifier = Modifier.weight(1f)) {
+                                explanation = glossaryNote
+                                SpeechSynthesizer.speak(glossaryNote, SettingsStore.speechRate)
+                            }
                         }
-                    }
-                    ActionButton("Крупно", modifier = Modifier.fillMaxWidth()) {
-                        largeText = if (tab == 1 && translated != null) translated!! else text
-                    }
-                    ActionButton("Снять заново", modifier = Modifier.fillMaxWidth()) {
+                        ActionButton("Крупно", modifier = Modifier.weight(1f)) {
+                            largeText = if (tab == 1 && translated != null) translated!! else text
+                        }
+                        ActionButton("Заново", modifier = Modifier.weight(1f)) {
                         blocks = emptyList()
                         blockIndex = -1
                         lastDataUrl = null
@@ -430,6 +431,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         uncertainNote = null
                         error = null
                         SpeechSynthesizer.stop()
+                        }
                     }
                 }
             }

@@ -259,13 +259,13 @@ fun BarcodeScreen(mode: ScanMode, onSwitchMode: (ScanMode) -> Unit, onBack: () -
                                 }
                             }
                         } else {
-                            ActionButton("Копировать", icon = Icons.Filled.ContentCopy, modifier = Modifier.weight(1f)) {
+                            ActionButton("Копия", icon = Icons.Filled.ContentCopy, modifier = Modifier.weight(1f)) {
                                 clipboard.setText(AnnotatedString(info.copy))
                                 Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
                             }
                         }
+                        ActionButton("Ещё", modifier = Modifier.weight(1f)) { reset() }
                     }
-                    ActionButton("Сканировать снова", modifier = Modifier.fillMaxWidth()) { reset() }
                 }
             }
 
@@ -353,16 +353,16 @@ private fun ProductCard(
                     onClick = onToggleExpanded
                 )
             } else {
-                ActionButton("Прочитать надпись", modifier = Modifier.weight(1f), onClick = onReadLabel)
+                ActionButton("Надпись", modifier = Modifier.weight(1f), onClick = onReadLabel)
             }
             ActionButton(
-                if (result.found) "Найти похожее" else "Найти в интернете",
+                if (result.found) "Похожее" else "В интернете",
                 icon = Icons.Outlined.Search,
                 modifier = Modifier.weight(1f),
                 onClick = onSimilar
             )
+            ActionButton("Ещё", modifier = Modifier.weight(1f), onClick = onAgain)
         }
-        ActionButton("Сканировать снова", modifier = Modifier.fillMaxWidth(), onClick = onAgain)
     }
 }
 

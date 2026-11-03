@@ -21,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.PhotoLibrary
@@ -285,7 +287,7 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
                 note = r.description
                 body = segments.joinToString("\n") { "${it.label} — ${it.description}" }
                 HistoryStore.addEntry("Видео", r.title, body.orEmpty())
-                say(r.description + " Нажмите «С описанием» — видео пойдёт кусками с паузами, или «Только описание».")
+                say(r.description + " Нажмите «Смотреть» — видео пойдёт кусками с паузами и описанием, или «Текстом» — только описание.")
             } catch (e: Exception) {
                 fail(e)
             } finally {
@@ -385,13 +387,17 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
                         Text("Фрагмент ${segIndex + 1} из ${segments.size}", color = Theme.textSecondary, fontSize = 13.sp)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        ActionButton("С описанием", filled = true, modifier = Modifier.weight(1f)) {
+                        ActionButton("Смотреть", icon = Icons.Filled.PlayArrow, filled = true, modifier = Modifier.weight(1f)) {
                             playGuided(if (segIndex in 0 until segments.size - 1) segIndex + 1 else 0)
                         }
-                        ActionButton("Стоп", modifier = Modifier.weight(0.6f)) {
+                        ActionButton("Стоп", icon = Icons.Filled.Stop, modifier = Modifier.weight(1f)) {
                             playJob?.cancel()
                             videoView?.pause()
                             SpeechSynthesizer.stop()
+                        }
+                        ActionButton("Текстом", modifier = Modifier.weight(1f)) {
+                            playJob?.cancel()
+                            say(segments.joinToString(". ") { "${it.label}. ${it.description}" })
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -402,18 +408,14 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
                             playJob?.cancel(); describeSegment(segIndex + 1)
                         }
                     }
-                    ActionButton("Только описание", modifier = Modifier.fillMaxWidth()) {
-                        playJob?.cancel()
-                        say(segments.joinToString(". ") { "${it.label}. ${it.description}" })
-                    }
                 }
 
                 // PDF: постраничное чтение
                 if (kind == MediaKind.PDF && pages.isNotEmpty()) {
                     Text("Страница ${pages[pageIndex].page} из ${pages.size}", color = Theme.textSecondary, fontSize = 13.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        ActionButton("Предыдущая", enabled = pageIndex > 0, modifier = Modifier.weight(1f)) { readPage(pageIndex - 1) }
-                        ActionButton("Следующая", enabled = pageIndex < pages.size - 1, modifier = Modifier.weight(1f)) { readPage(pageIndex + 1) }
+                        ActionButton("Назад", enabled = pageIndex > 0, modifier = Modifier.weight(1f)) { readPage(pageIndex - 1) }
+                        ActionButton("Дальше", enabled = pageIndex < pages.size - 1, modifier = Modifier.weight(1f)) { readPage(pageIndex + 1) }
                     }
                 }
 
@@ -444,14 +446,14 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     when (kind) {
-                        MediaKind.PDF -> ActionButton("Выбрать PDF", icon = Icons.Outlined.Description, filled = true, enabled = !busy, modifier = Modifier.weight(1f)) {
+                        MediaKind.PDF -> ActionButton("Открыть PDF", icon = Icons.Outlined.Description, filled = true, enabled = !busy, modifier = Modifier.weight(1f)) {
                             pdfPicker.launch("application/pdf")
                         }
-                        MediaKind.VIDEO -> ActionButton("Выбрать видео", icon = Icons.Outlined.VideoLibrary, filled = true, enabled = !busy, modifier = Modifier.weight(1f)) {
+                        MediaKind.VIDEO -> ActionButton("Открыть видео", icon = Icons.Outlined.VideoLibrary, filled = true, enabled = !busy, modifier = Modifier.weight(1f)) {
                             videoPicker.launch("video/*")
                         }
                         else -> {
-                            ActionButton("Из галереи", icon = Icons.Outlined.PhotoLibrary, enabled = !busy, modifier = Modifier.weight(1f)) {
+                            ActionButton("Галерея", icon = Icons.Outlined.PhotoLibrary, enabled = !busy, modifier = Modifier.weight(1f)) {
                                 imagePicker.launch("image/*")
                             }
                             ShutterButton(isBusy = busy) {
