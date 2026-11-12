@@ -44,12 +44,6 @@ object BarcodeService {
 
 }
 
-/** «Чек / Документ»: фото -> поля. Распознавание на сервере может занять до пары минут. */
-object DocumentService {
-    suspend fun read(imageDataUrl: String, kind: String): DocumentResult =
-        ApiClient.postSlow("/document/read", DocumentRequestBody(imageDataUrl, kind))
-}
-
 /** «Что в руке»: предмет, цвет, состояние овощей и фруктов. Серверная модель тратит несколько секунд. */
 object InspectService {
     suspend fun inspect(imageDataUrl: String): InspectResult =

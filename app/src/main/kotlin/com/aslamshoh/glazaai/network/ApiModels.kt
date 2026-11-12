@@ -18,7 +18,6 @@ data class SceneRequestBody(val image: String, val detail: Boolean = false)
 
 data class OcrRequestBody(val image: String, val language: String)
 
-data class DocumentRequestBody(val image: String, val kind: String)
 
 data class FeedbackRequestBody(
     val message: String,
@@ -151,22 +150,6 @@ data class DocumentField(val label: String, val value: String)
 
 /** Позиция чека; spoken — готовая фраза «Молоко, 2 шт, 120 рублей». */
 data class DocumentItem(val name: String, val quantity: String?, val amount: Double?, val spoken: String)
-
-data class DocumentResult(
-    val id: String,
-    val title: String,
-    val description: String,
-    val kind: String,
-    val store: String?,
-    val date: String?,
-    val total: Double?,
-    val totalSure: Boolean?,
-    val items: List<DocumentItem>?,
-    val fields: List<DocumentField>?,
-    val recognizedText: String?,
-    val warnings: List<String>?,
-    val timestamp: Long
-)
 
 /** Цвет предмета: название и доля площади (0..1). */
 data class InspectColor(val name: String, val share: Double)

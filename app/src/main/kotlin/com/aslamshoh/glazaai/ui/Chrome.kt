@@ -99,7 +99,6 @@ object Routes {
     const val SETTINGS = "settings"
     const val PRO = "pro"
     const val OFFLINE = "offline"
-    const val DOCUMENT = "scan/document"
     const val FEEDBACK = "feedback"
     const val INSPECT = "scan/inspect"
     const val HELP = "help"
@@ -200,7 +199,6 @@ enum class ScanMode(val label: String, val route: String) {
     PRODUCT("Товар", Routes.BARCODE),
     TEXT("Текст", Routes.TEXT),
     CURRENCY("Валюта", Routes.CURRENCY),
-    DOC("Чек", Routes.DOCUMENT),
     HAND("В руке", Routes.INSPECT),
     MEDIA("Файлы", Routes.MEDIA)
 }

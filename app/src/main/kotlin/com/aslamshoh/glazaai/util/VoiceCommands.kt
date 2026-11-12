@@ -36,14 +36,14 @@ sealed class VoiceCommand {
     /** «Рядом» / «что под ногами» — ассистент ближней зоны: ступеньки, бордюры, вход, переход. */
     object Near : VoiceCommand()
 
-    /** Файлы и медиа: kind = photo | graph | handwriting | pdf | video. */
+    /** Файлы и медиа: kind = photo | handwriting | pdf | video. */
     data class Media(val kind: String) : VoiceCommand()
     object Unknown : VoiceCommand()
 }
 
 /**
  * Простой разбор голосовой команды по ключевым словам (без облачного ИИ — работает офлайн).
- * Порядок проверок важен: «найди» и «навигация» раньше общих слов вроде «текст».
+ * Порядок проверок важен: «найди» раньше общих слов вроде «текст».
  */
 object VoiceCommands {
     private val fillers = setOf(
@@ -70,8 +70,7 @@ object VoiceCommands {
         parseHelp(text)?.let { return it }
 
         if (text == "рядом" || has(
-                "режим рядом", "что под ногами", "препятстви", "ступеньк", "бордюр", "пешеходный переход",
-                "навигац", "маршрут", "как пройти", "как дойти", "веди меня", "проводи"
+                "режим рядом", "что под ногами", "препятстви", "ступеньк", "бордюр", "пешеходный переход"
             )
         ) {
             return VoiceCommand.Near
@@ -113,7 +112,6 @@ object VoiceCommands {
         return when {
             has("видео", "ролик") -> VoiceCommand.Media("video")
             has("pdf", "пдф", "пэдээф") -> VoiceCommand.Media("pdf")
-            has("график", "диаграмм", "чертеж", "парабол") -> VoiceCommand.Media("graph")
             has("рукопис", "почерк", "от руки", "записк") -> VoiceCommand.Media("handwriting")
             has("опиши фото", "опиши картинку", "опиши изображение", "опиши снимок", "что на фото", "что на картинке") -> VoiceCommand.Media("photo")
             else -> null

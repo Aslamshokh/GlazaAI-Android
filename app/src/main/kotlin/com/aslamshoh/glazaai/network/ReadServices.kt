@@ -31,6 +31,17 @@ data class ReadBlock(
     val rows: List<List<String>>?
 )
 
+/** Чек или документ, найденный в режиме «Текст»: итог, магазин, позиции, поля. */
+data class DocInfo(
+    val kind: String,
+    val title: String,
+    val summary: String,
+    val total: String?,
+    val fields: List<DocumentField>?,
+    val items: List<DocumentItem>?,
+    val itemsSpoken: String?
+)
+
 data class StructuredResult(
     val id: String,
     val title: String,
@@ -42,6 +53,7 @@ data class StructuredResult(
     val tableMode: String?,
     val uncertain: Boolean,
     val source: String?,
+    val document: DocInfo?,
     val timestamp: Long
 )
 
@@ -137,36 +149,32 @@ data class NearFrameResult(
 // ---------- Сервисы ----------
 
 object ReadService {
-    suspend fun structured(imageDataUrl: String, tableMode: String, expectTable: Boolean, allowCloud: Boolean): StructuredResult =
+    suspend fun structured(imageDataUrl: String, tableMode: String, expectTable: Boolean): StructuredResult =
         ApiClient.postSlow(
             "/read/structured",
-            StructuredRequestBody(imageDataUrl, tableMode, if (expectTable) "table" else "auto", allowCloud)
+            StructuredRequestBody(imageDataUrl, tableMode, if (expectTable) "table" else "auto")
         )
 
     /** PDF целиком: сканы распознаются на сервере, это может занять несколько минут. */
     suspend fun pdf(pdfDataUrl: String, tableMode: String): PdfResult =
         ApiClient.postSlow("/read/pdf", PdfRequestBody(pdfDataUrl, tableMode), readSeconds = 300)
 
-    suspend fun handwriting(imageDataUrl: String, allowCloud: Boolean): HandwritingResult =
-        ApiClient.postSlow("/read/handwriting", CloudImageBody(imageDataUrl, allowCloud))
+    suspend fun handwriting(imageDataUrl: String): HandwritingResult =
+        ApiClient.postSlow("/read/handwriting", CloudImageBody(imageDataUrl, false))
 }
 
 object DescribeService {
-    suspend fun photo(imageDataUrl: String, allowCloud: Boolean): DescribeResult =
-        ApiClient.postSlow("/describe/photo", CloudImageBody(imageDataUrl, allowCloud))
-
-    suspend fun graph(imageDataUrl: String, allowCloud: Boolean): DescribeResult =
-        ApiClient.postSlow("/describe/graph", CloudImageBody(imageDataUrl, allowCloud))
+    suspend fun photo(imageDataUrl: String): DescribeResult =
+        ApiClient.postSlow("/describe/photo", CloudImageBody(imageDataUrl, false))
 
     suspend fun capabilities(): Capabilities = ApiClient.get("/describe/capabilities")
 
     /** Видео отправляется файлом (multipart): сервер режет его на фрагменты и описывает каждый. */
-    suspend fun video(bytes: ByteArray, mime: String, allowCloud: Boolean, segmentSeconds: Float = 5f): VideoResult =
+    suspend fun video(bytes: ByteArray, mime: String, segmentSeconds: Float = 5f): VideoResult =
         withContext(Dispatchers.IO) {
             val body = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file", "video.mp4", bytes.toRequestBody(mime.toMediaTypeOrNull()))
-                .addFormDataPart("allowCloud", allowCloud.toString())
                 .addFormDataPart("segmentSeconds", segmentSeconds.toString())
                 .build()
             val request = ApiClient.newRequestBuilder("/describe/video").post(body).build()
@@ -207,8 +215,6 @@ object HealthService {
                 if (e.status != 404) throw e
             }
         }
-        val smart = if (h.smartProvider.isNullOrBlank() || h.smartProvider == "none") "умный режим на сервере не настроен"
-        else "умный режим доступен"
-        return "Связь с сервером есть, всё работает. Распознавание: ${if (h.aiProvider == "local") "на вашем сервере" else h.aiProvider}, $smart."
+        return "Связь с сервером есть, всё работает. Распознавание идёт на вашем сервере, без внешних сервисов."
     }
 }

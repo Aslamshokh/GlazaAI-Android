@@ -25,10 +25,11 @@ object SettingsStore {
     private const val KEY_HAPTICS = "glazaai.hapticsEnabled"
     private const val KEY_HIGH_CONTRAST = "glazaai.highContrast"
     private const val KEY_APP_LANGUAGE = "glazaai.appLanguage"
-    private const val KEY_NEURAL_VOICE = "glazaai.neuralVoice"
+    // V2: по умолчанию выключен — естественный голос это онлайн-сервис Microsoft, а приложение
+    // должно работать без внешних сервисов. Старый ключ не читаем, чтобы у всех стал голос телефона.
+    private const val KEY_NEURAL_VOICE_V2 = "glazaai.neuralVoice.v2"
     private const val KEY_VOICE_GENDER = "glazaai.voiceGender"
     private const val KEY_TESTER_NAME = "glazaai.testerName"
-    private const val KEY_ALLOW_CLOUD = "glazaai.allowCloud"
     private const val KEY_TABLE_MODE = "glazaai.tableMode"
     private const val KEY_NEAR_RADIUS = "glazaai.nearRadius"
     private const val KEY_TUTORIAL = "glazaai.tutorialHints"
@@ -51,7 +52,7 @@ object SettingsStore {
 
     /** Естественный голос: озвучку делает backend (нейроголоса), телефон только проигрывает.
      * Если backend недоступен — само переключается на встроенный голос телефона. */
-    var neuralVoice by mutableStateOf(true)
+    var neuralVoice by mutableStateOf(false)
         private set
 
     /** "female" (Светлана) или "male" (Дмитрий) — для естественного голоса. */
@@ -60,12 +61,6 @@ object SettingsStore {
 
     /** Как подписывать отзывы (необязательно): имя или номер тестера. */
     var testerName by mutableStateOf("")
-        private set
-
-    /** «Умный режим»: рукописный текст, графики, подробное описание фото и видео делает облачный
-     * ИИ — фото уходит во внешний сервис (не сохраняется). По умолчанию выключен: без согласия
-     * пользователя ничего никуда не отправляем, всё остальное работает на своём сервере. */
-    var allowCloud by mutableStateOf(false)
         private set
 
     /** Как читать таблицы: "rows" — по строкам (удобнее, по умолчанию), "columns" — по столбцам. */
@@ -90,19 +85,13 @@ object SettingsStore {
         hapticsEnabled = prefs.getBoolean(KEY_HAPTICS, true)
         highContrast = prefs.getBoolean(KEY_HIGH_CONTRAST, false)
         appLanguage = prefs.getString(KEY_APP_LANGUAGE, "ru") ?: "ru"
-        neuralVoice = prefs.getBoolean(KEY_NEURAL_VOICE, true)
+        neuralVoice = prefs.getBoolean(KEY_NEURAL_VOICE_V2, false)
         voiceGender = prefs.getString(KEY_VOICE_GENDER, "female") ?: "female"
         testerName = prefs.getString(KEY_TESTER_NAME, "") ?: ""
-        allowCloud = prefs.getBoolean(KEY_ALLOW_CLOUD, false)
         tableMode = prefs.getString(KEY_TABLE_MODE, "rows") ?: "rows"
         nearRadius = prefs.getFloat(KEY_NEAR_RADIUS, 3f).coerceIn(2f, 5f)
         tutorialHints = prefs.getBoolean(KEY_TUTORIAL, true)
         seenHints = prefs.getStringSet(KEY_SEEN_HINTS, emptySet())?.toSet() ?: emptySet()
-    }
-
-    fun updateAllowCloud(value: Boolean) {
-        allowCloud = value
-        prefs.edit().putBoolean(KEY_ALLOW_CLOUD, value).apply()
     }
 
     fun updateTableMode(value: String) {
@@ -174,7 +163,7 @@ object SettingsStore {
 
     fun updateNeuralVoice(value: Boolean) {
         neuralVoice = value
-        prefs.edit().putBoolean(KEY_NEURAL_VOICE, value).apply()
+        prefs.edit().putBoolean(KEY_NEURAL_VOICE_V2, value).apply()
     }
 
     fun updateVoiceGender(value: String) {

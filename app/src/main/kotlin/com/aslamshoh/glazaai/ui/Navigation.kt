@@ -101,12 +101,6 @@ fun GlazaNavHost() {
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable(Routes.DOCUMENT) {
-                DocumentScreen(
-                    onSwitchMode = { openScanMode(navController, it) },
-                    onBack = { navController.popBackStack() }
-                )
-            }
             composable(Routes.INSPECT) {
                 InspectScreen(
                     onSwitchMode = { openScanMode(navController, it) },
@@ -202,7 +196,7 @@ private fun openVoiceCommand(nav: NavHostController, command: VoiceCommand) {
         VoiceCommand.ReadText -> nav.navigate(Routes.TEXT) { launchSingleTop = true }
         VoiceCommand.Currency -> nav.navigate(Routes.CURRENCY) { launchSingleTop = true }
         VoiceCommand.Product -> nav.navigate(Routes.BARCODE) { launchSingleTop = true }
-        VoiceCommand.Document -> nav.navigate(Routes.DOCUMENT) { launchSingleTop = true }
+        VoiceCommand.Document -> nav.navigate(Routes.TEXT) { launchSingleTop = true }
         VoiceCommand.Inspect -> nav.navigate(Routes.INSPECT) { launchSingleTop = true }
         VoiceCommand.Feedback -> nav.navigate(Routes.FEEDBACK) { launchSingleTop = true }
         VoiceCommand.Near -> openTab(nav, AppTab.NEAR)

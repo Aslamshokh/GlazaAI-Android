@@ -49,6 +49,7 @@ import com.aslamshoh.glazaai.camera.rememberCameraCaptureController
 import com.aslamshoh.glazaai.network.ApiClient
 import com.aslamshoh.glazaai.network.CurrencyResult
 import com.aslamshoh.glazaai.network.CurrencyService
+import com.aslamshoh.glazaai.network.DocInfo
 import com.aslamshoh.glazaai.network.ApiException
 import com.aslamshoh.glazaai.network.OcrService
 import com.aslamshoh.glazaai.network.ReadBlock
@@ -64,7 +65,13 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 /** Результат чтения текста: структурный (новый сервер) или обычный OCR (старый сервер). */
-private data class ReadOutcome(val blocks: List<ReadBlock>, val text: String, val description: String, val uncertain: Boolean)
+private data class ReadOutcome(
+    val blocks: List<ReadBlock>,
+    val text: String,
+    val description: String,
+    val uncertain: Boolean,
+    val doc: DocInfo? = null
+)
 
 /** Камера для одиночного снимка (Текст, Валюта) с понятным сообщением вместо чёрного экрана. */
 @Composable
@@ -110,7 +117,13 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     var blockIndex by remember { mutableIntStateOf(-1) }
     var tableMode by remember { mutableStateOf(SettingsStore.tableMode) }
     var lastDataUrl by remember { mutableStateOf<String?>(null) }
+    // Чек или документ: «Текст» сам узнаёт его и читает главное (итог, магазин, позиции).
+    var doc by remember { mutableStateOf<DocInfo?>(null) }
     val hasTable = blocks.any { it.type == "table" }
+
+    fun speakDoc(d: DocInfo) {
+        SpeechSynthesizer.speak(d.summary, SettingsStore.speechRate)
+    }
 
     fun speakAll(text: String) {
         val spoken = if (blocks.isNotEmpty()) ReadSpeech.all(blocks, tableMode) else ReadSpeech.punct(text)
@@ -164,8 +177,8 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                     lastDataUrl = dataUrl
                     // Чтение со структурой (списки, скобки, таблицы); со старым сервером — обычный OCR.
                     val outcome = try {
-                        val s = ReadService.structured(dataUrl, tableMode, expectTable = false, allowCloud = SettingsStore.allowCloud)
-                        ReadOutcome(s.blocks.orEmpty(), s.text.orEmpty().trim(), s.description, s.uncertain)
+                        val s = ReadService.structured(dataUrl, tableMode, expectTable = false)
+                        ReadOutcome(s.blocks.orEmpty(), s.text.orEmpty().trim(), s.description, s.uncertain, s.document)
                     } catch (e: ApiException.Server) {
                         if (e.status != 404) throw e
                         val r = OcrService.recognize(dataUrl, SettingsStore.appLanguage)
@@ -184,13 +197,20 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         uncertainNote = if (uncertain) "Текст распознан неуверенно: возможны ошибки. Для точного чтения снимите ближе и ровнее." else null
                         blocks = newBlocks
                         blockIndex = -1
+                        doc = outcome.doc
                         original = text
                         translated = null
                         explanation = null
                         tab = 0
                         reversed = false
-                        HistoryStore.addEntry("Текст", "Текст: " + text.take(28).replace('\n', ' '), text, bitmap)
-                        speakAll(text)
+                        val d = outcome.doc
+                        if (d != null) {
+                            HistoryStore.addEntry("Текст", d.title + ": " + d.summary.take(40), d.summary + "\n\n" + text, bitmap)
+                            speakDoc(d)
+                        } else {
+                            HistoryStore.addEntry("Текст", "Текст: " + text.take(28).replace('\n', ' '), text, bitmap)
+                            speakAll(text)
+                        }
                         uncertainNote?.let { SpeechSynthesizer.speakQueued(it, SettingsStore.speechRate, false) }
                     }
                 } catch (e: Exception) {
@@ -210,7 +230,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     LaunchedEffect(hasCamera) {
         if (hasCamera) {
             SpeechSynthesizer.speakQueued(
-                "Наведите камеру на текст. Снимок сделается сам, когда кадр будет чётким. Можно и нажать большую кнопку внизу.",
+                "Наведите камеру на текст, чек или документ. Снимок сделается сам, когда кадр будет чётким. Можно и нажать большую кнопку внизу.",
                 SettingsStore.speechRate,
                 false
             )
@@ -250,7 +270,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
             if (text == null) {
                 GlassSheet {
                     Text(
-                        "Наведите камеру на текст: приложение снимет само, когда кадр станет чётким, и прочитает вслух. " +
+                        "Наведите камеру на текст, чек или документ: приложение снимет само, когда кадр станет чётким, и прочитает вслух. " +
                             "Или нажмите кнопку.",
                         color = Theme.textSecondary,
                         fontSize = 14.sp
@@ -262,6 +282,34 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                 }
             } else {
                 GlassSheet {
+                    doc?.let { d ->
+                        // Чек / документ: сначала главное, полный текст — ниже, как обычно.
+                        Text(d.title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        d.total?.let { Text("Итого: $it", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold) }
+                        d.fields.orEmpty().filter { it.label != "Итого" }.take(5).forEach { f ->
+                            Text("${f.label}: ${f.value}", color = Theme.textPrimary.copy(alpha = 0.92f), fontSize = 14.sp)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            ActionButton("Главное", icon = Icons.Filled.VolumeUp, filled = true, modifier = Modifier.weight(1f)) { speakDoc(d) }
+                            if (d.total != null) {
+                                ActionButton("Итог", modifier = Modifier.weight(1f)) {
+                                    SpeechSynthesizer.speak("Итого: ${d.total}", SettingsStore.speechRate)
+                                }
+                            }
+                            if (!d.items.isNullOrEmpty()) {
+                                ActionButton("Позиции", modifier = Modifier.weight(1f)) {
+                                    SpeechSynthesizer.speak(d.itemsSpoken.orEmpty(), SettingsStore.speechRate)
+                                }
+                            } else if (!d.fields.isNullOrEmpty()) {
+                                ActionButton("Поля", modifier = Modifier.weight(1f)) {
+                                    SpeechSynthesizer.speak(
+                                        d.fields.orEmpty().joinToString(". ") { "${it.label}: ${it.value}" },
+                                        SettingsStore.speechRate
+                                    )
+                                }
+                            }
+                        }
+                    }
                     // вкладки «Текст» / «Перевод»
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         TabPill("Текст", tab == 0, Modifier.weight(1f)) { tab = 0 }
@@ -355,15 +403,14 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                             SpeechSynthesizer.speak("Ищу таблицу…", SettingsStore.speechRate)
                             scope.launch {
                                 try {
-                                    val s = ReadService.structured(url, tableMode, expectTable = true, allowCloud = SettingsStore.allowCloud)
+                                    val s = ReadService.structured(url, tableMode, expectTable = true)
                                     if (s.hasTable) {
                                         blocks = s.blocks.orEmpty()
                                         blockIndex = -1
                                         original = s.text.orEmpty().ifBlank { text }
                                         speakAll(original.orEmpty())
                                     } else {
-                                        val msg = if (SettingsStore.allowCloud) "Таблицу не нашла. Снимите таблицу целиком и ровнее."
-                                        else "Таблицу не нашла. Снимите её ровнее, целиком. Для сложных таблиц включите «Умный режим» в настройках."
+                                        val msg = "Таблицу не нашла. Снимите её ровнее и целиком, чтобы были видны все столбцы."
                                         SpeechSynthesizer.speak(msg, SettingsStore.speechRate)
                                         error = msg
                                     }
@@ -425,6 +472,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         blocks = emptyList()
                         blockIndex = -1
                         lastDataUrl = null
+                        doc = null
                         original = null
                         translated = null
                         explanation = null

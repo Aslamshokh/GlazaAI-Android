@@ -27,10 +27,8 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.VideoLibrary
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -72,7 +70,6 @@ import kotlinx.coroutines.withContext
 /** Что делаем на экране «Файлы и медиа». */
 enum class MediaKind(val key: String, val label: String, val camera: Boolean, val intro: String) {
     PHOTO("photo", "Фото", true, "Описание фото как в книге: кто или что в кадре, что происходит. Снимите камерой или выберите фото."),
-    GRAPH("graph", "График", true, "Описание графика или диаграммы: что изображено и как выглядит, без решения задачи."),
     HANDWRITING("handwriting", "Рукопись", true, "Чтение рукописного текста с разборчивым почерком. Снимите записку или тетрадь."),
     PDF("pdf", "PDF", false, "Чтение PDF, в том числе сканов без текста. Выберите файл."),
     VIDEO("video", "Видео", false, "Описание видео по фрагментам: несколько секунд видео, пауза, описание, и дальше.");
@@ -106,7 +103,6 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
     var segIndex by remember { mutableIntStateOf(-1) }
     var videoView by remember { mutableStateOf<VideoView?>(null) }
     var playJob by remember { mutableStateOf<Job?>(null) }
-    var askCloud by remember { mutableStateOf(false) }
     var largeText by remember { mutableStateOf<String?>(null) }
     largeText?.let { LargeTextDialog(it) { largeText = null } }
 
@@ -137,12 +133,8 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
         SpeechSynthesizer.speakQueued(kind.intro, SettingsStore.speechRate, true)
     }
 
-    // ── Фото / график / рукопись ──
+    // ── Фото / рукопись ──
     fun processImage(bitmap: Bitmap) {
-        if (kind == MediaKind.GRAPH && !SettingsStore.allowCloud) {
-            askCloud = true
-            return
-        }
         busy = true
         error = null
         say("Обрабатываю…")
@@ -150,22 +142,16 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
         scope.launch {
             try {
                 when (kind) {
-                    MediaKind.GRAPH -> {
-                        val r = DescribeService.graph(dataUrl, true)
-                        title = r.title; body = listOfNotNull(r.description, r.text?.takeIf { it.isNotBlank() }?.let { "Надписи: $it" }).joinToString("\n\n")
-                        spoken = r.spoken ?: r.description
-                    }
                     MediaKind.HANDWRITING -> {
-                        val r = ReadService.handwriting(dataUrl, SettingsStore.allowCloud)
+                        val r = ReadService.handwriting(dataUrl)
                         title = r.title; body = r.recognizedText.orEmpty().ifBlank { r.description }
                         spoken = r.spoken?.takeIf { it.isNotBlank() } ?: r.description
-                        note = if (r.source == "local") r.description else null
+                        note = r.description
                     }
                     else -> {
-                        val r = DescribeService.photo(dataUrl, SettingsStore.allowCloud)
+                        val r = DescribeService.photo(dataUrl)
                         title = r.title; body = listOfNotNull(r.description, r.text?.takeIf { it.isNotBlank() }?.let { "Текст на фото: $it" }).joinToString("\n\n")
                         spoken = r.spoken ?: r.description
-                        note = if (r.source == "local") "Кратко, без облака. Для подробного описания включите «Умный режим» в настройках." else null
                     }
                 }
                 HistoryStore.addEntry(kind.label, title.orEmpty(), body.orEmpty(), bitmap)
@@ -280,7 +266,7 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
                 val bytes = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
                     ?: throw IllegalStateException("Не удалось открыть видео.")
                 if (bytes.size > MAX_VIDEO_BYTES) throw IllegalStateException("Видео слишком большое: больше 60 МБ.")
-                val r = DescribeService.video(bytes, mime, SettingsStore.allowCloud)
+                val r = DescribeService.video(bytes, mime)
                 segments = r.segments.orEmpty()
                 videoUri = uri
                 title = r.title
@@ -294,30 +280,6 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
                 busy = false
             }
         }
-    }
-
-    if (askCloud) {
-        AlertDialog(
-            onDismissRequest = { askCloud = false },
-            containerColor = Theme.surface,
-            title = { Text("Включить умный режим?", color = Theme.textPrimary) },
-            text = {
-                Text(
-                    "Графики, подробное описание фото, рукописный текст и видео описывает облачный ИИ. Фото отправится во внешний " +
-                        "сервис только для ответа и нигде не сохраняется. Без умного режима всё остальное работает на вашем сервере.",
-                    color = Theme.textSecondary,
-                    fontSize = 14.sp
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    SettingsStore.updateAllowCloud(true)
-                    askCloud = false
-                    say("Умный режим включён. Сделайте снимок ещё раз.")
-                }) { Text("Включить", color = Theme.accent) }
-            },
-            dismissButton = { TextButton(onClick = { askCloud = false }) { Text("Не сейчас", color = Theme.textSecondary) } }
-        )
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -356,14 +318,6 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
             GlassSheet {
                 if (title == null) {
                     Text(kind.intro, color = Theme.textSecondary, fontSize = 14.sp)
-                    if (!SettingsStore.allowCloud && kind != MediaKind.PDF) {
-                        Text(
-                            if (kind == MediaKind.GRAPH) "Нужен «Умный режим» (облачный ИИ) — включите его в настройках или при первом снимке."
-                            else "Без «Умного режима» — кратко и без облака.",
-                            color = Theme.warning,
-                            fontSize = 13.sp
-                        )
-                    }
                 }
 
                 if (busy) {
