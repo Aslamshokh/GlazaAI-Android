@@ -1,5 +1,6 @@
 package com.aslamshoh.glazaai.ui
 
+import com.aslamshoh.glazaai.util.CaptureFeedback
 import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -163,7 +164,6 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
         if (busy || !hasCamera) return
         error = null
         busy = true
-        SpeechSynthesizer.speakQueued("Читаю…", SettingsStore.speechRate, true)
         controller.captureFrame { bitmap ->
             if (bitmap == null) {
                 busy = false
@@ -172,6 +172,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                 SpeechSynthesizer.speak(error.orEmpty(), SettingsStore.speechRate)
                 return@captureFrame
             }
+            SpeechSynthesizer.speakQueued(CaptureFeedback.SPOKEN + " Читаю…", SettingsStore.speechRate, true)
             val dataUrl = ImageEncoding.dataUrl(bitmap, maxDimension = 2000, quality = 88)
             scope.launch {
                 try {
@@ -532,14 +533,15 @@ fun CurrencyScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
         if (busy || !hasCamera) return
         error = null
         busy = true
-        SpeechSynthesizer.speakQueued("Смотрю…", SettingsStore.speechRate, true)
         controller.captureFrame { bitmap ->
             if (bitmap == null) {
                 busy = false
                 error = "Не удалось получить кадр с камеры. Попробуйте ещё раз."
                 failedRead++
+                SpeechSynthesizer.speak(error.orEmpty(), SettingsStore.speechRate)
                 return@captureFrame
             }
+            SpeechSynthesizer.speakQueued(CaptureFeedback.SPOKEN + " Определяю номинал…", SettingsStore.speechRate, true)
             val dataUrl = ImageEncoding.dataUrl(bitmap)
             scope.launch {
                 try {

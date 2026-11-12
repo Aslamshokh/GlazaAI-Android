@@ -34,7 +34,6 @@ import com.aslamshoh.glazaai.camera.CameraCaptureController
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.SettingsStore
 import com.aslamshoh.glazaai.util.AutoCaptureGate
-import com.aslamshoh.glazaai.util.Beeper
 import com.aslamshoh.glazaai.util.FrameHint
 import com.aslamshoh.glazaai.util.HintSpeaker
 
@@ -83,7 +82,6 @@ fun rememberAutoCapture(
                 if (decision.hint == FrameHint.MOVING || decision.hint == FrameHint.NO_CONTENT) state.needMovement = false
             } else if (decision.fire) {
                 controller.qualityListener = null
-                Beeper.shutter()
                 fire()
             } else {
                 speaker.next(decision.hint, now)?.let {

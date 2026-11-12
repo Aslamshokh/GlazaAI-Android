@@ -175,6 +175,7 @@ class CameraCaptureController(
             ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
+                    com.aslamshoh.glazaai.util.CaptureFeedback.captured(context)
                     val bitmap = imageProxyToBitmap(image)
                     image.close()
                     onResult(bitmap)

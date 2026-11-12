@@ -40,7 +40,6 @@ import com.aslamshoh.glazaai.network.InspectService
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.HistoryStore
 import com.aslamshoh.glazaai.store.SettingsStore
-import com.aslamshoh.glazaai.util.Beeper
 import com.aslamshoh.glazaai.util.ImageEncoding
 import kotlinx.coroutines.launch
 
@@ -82,8 +81,6 @@ fun InspectScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
         if (busy || !hasCamera) return
         error = null
         busy = true
-        Beeper.shutter()
-        SpeechSynthesizer.speakQueued("Смотрю…", SettingsStore.speechRate, true)
         controller.captureFrame { bitmap ->
             if (bitmap == null) {
                 busy = false
@@ -91,6 +88,7 @@ fun InspectScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                 SpeechSynthesizer.speak(error.orEmpty(), SettingsStore.speechRate)
                 return@captureFrame
             }
+            SpeechSynthesizer.speakQueued("Снято. Смотрю…", SettingsStore.speechRate, true)
             val dataUrl = ImageEncoding.dataUrl(bitmap, maxDimension = 1280, quality = 85)
             scope.launch {
                 try {

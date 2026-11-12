@@ -137,7 +137,7 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
     fun processImage(bitmap: Bitmap, fromCamera: Boolean = false) {
         busy = true
         error = null
-        say("Обрабатываю…")
+        say(if (fromCamera) "Снято, можно убрать. Обрабатываю…" else "Обрабатываю…")
         val dataUrl = ImageEncoding.dataUrl(bitmap, maxDimension = 1800, quality = 88)
         scope.launch {
             try {
