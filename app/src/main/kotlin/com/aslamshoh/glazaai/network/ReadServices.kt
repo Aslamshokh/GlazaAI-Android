@@ -1,5 +1,6 @@
 package com.aslamshoh.glazaai.network
 
+import com.aslamshoh.glazaai.store.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -54,6 +55,8 @@ data class StructuredResult(
     val uncertain: Boolean,
     val source: String?,
     val document: DocInfo?,
+    /** «Лист обрезан справа — сдвиньте камеру правее» и т. п.; null, если всё в кадре. */
+    val framingHint: String? = null,
     val timestamp: Long
 )
 
@@ -71,6 +74,10 @@ data class PdfResult(
 )
 
 data class CloudImageBody(val image: String, val allowCloud: Boolean)
+
+/** style: "tactile" — для незрячих с рождения (осязание, размер, «лист в руках», без цвета);
+ * "brief" — коротко: что и где. fromCamera — снимок камеры (тогда расстояние в шагах). */
+data class PhotoDescribeBody(val image: String, val style: String, val fromCamera: Boolean)
 
 data class HandwritingResult(
     val id: String,
@@ -164,8 +171,11 @@ object ReadService {
 }
 
 object DescribeService {
-    suspend fun photo(imageDataUrl: String): DescribeResult =
-        ApiClient.postSlow("/describe/photo", CloudImageBody(imageDataUrl, false))
+    suspend fun photo(imageDataUrl: String, fromCamera: Boolean = false): DescribeResult =
+        ApiClient.postSlow(
+            "/describe/photo",
+            PhotoDescribeBody(imageDataUrl, if (SettingsStore.tactileDescriptions) "tactile" else "brief", fromCamera)
+        )
 
     suspend fun capabilities(): Capabilities = ApiClient.get("/describe/capabilities")
 

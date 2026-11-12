@@ -69,7 +69,7 @@ import kotlinx.coroutines.withContext
 
 /** Что делаем на экране «Файлы и медиа». */
 enum class MediaKind(val key: String, val label: String, val camera: Boolean, val intro: String) {
-    PHOTO("photo", "Фото", true, "Описание фото как в книге: кто или что в кадре, что происходит. Снимите камерой или выберите фото."),
+    PHOTO("photo", "Фото", true, "Описание фото для незрячих: картинка как лист в руках — что вверху, внизу, слева, справа, какой предмет на ощупь и какого размера. Снимите камерой или выберите фото."),
     HANDWRITING("handwriting", "Рукопись", true, "Чтение рукописного текста с разборчивым почерком. Снимите записку или тетрадь."),
     PDF("pdf", "PDF", false, "Чтение PDF, в том числе сканов без текста. Выберите файл."),
     VIDEO("video", "Видео", false, "Описание видео по фрагментам: несколько секунд видео, пауза, описание, и дальше.");
@@ -134,7 +134,7 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
     }
 
     // ── Фото / рукопись ──
-    fun processImage(bitmap: Bitmap) {
+    fun processImage(bitmap: Bitmap, fromCamera: Boolean = false) {
         busy = true
         error = null
         say("Обрабатываю…")
@@ -149,7 +149,7 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
                         note = r.description
                     }
                     else -> {
-                        val r = DescribeService.photo(dataUrl)
+                        val r = DescribeService.photo(dataUrl, fromCamera)
                         title = r.title; body = listOfNotNull(r.description, r.text?.takeIf { it.isNotBlank() }?.let { "Текст на фото: $it" }).joinToString("\n\n")
                         spoken = r.spoken ?: r.description
                     }
@@ -171,7 +171,7 @@ fun MediaScreen(initialKind: String, onSwitchMode: (ScanMode) -> Unit, onBack: (
                 error = "Не удалось получить кадр с камеры. Попробуйте ещё раз."
                 say(error.orEmpty())
             } else {
-                processImage(bitmap)
+                processImage(bitmap, fromCamera = true)
             }
         }
     }

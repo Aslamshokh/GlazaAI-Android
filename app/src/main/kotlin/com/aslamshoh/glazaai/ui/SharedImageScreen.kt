@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aslamshoh.glazaai.network.ApiClient
 import com.aslamshoh.glazaai.network.OcrService
-import com.aslamshoh.glazaai.network.VisionService
+import com.aslamshoh.glazaai.network.DescribeService
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.HistoryStore
 import com.aslamshoh.glazaai.store.SettingsStore
@@ -77,8 +77,14 @@ fun SharedImageScreen(uri: Uri, onBack: () -> Unit) {
         var ocr: String? = null
         var failure: Exception? = null
         coroutineScope {
-            val a = async { try { VisionService.describeScene(dataUrl).description } catch (e: Exception) { failure = e; null } }
-            val b = async { try { OcrService.recognize(dataUrl, SettingsStore.appLanguage).recognizedText } catch (e: Exception) { failure = e; null } }
+            // Описание для незрячих: предметы через осязание и «лист в руках» + надписи (сервер читает их сам).
+            val a = async {
+                try {
+                    val r = DescribeService.photo(dataUrl, fromCamera = false)
+                    listOfNotNull(r.description, r.text?.takeIf { it.isNotBlank() }?.let { "Надпись: $it" }).joinToString(" ")
+                } catch (e: Exception) { failure = e; null }
+            }
+            val b = async { null as String? }
             scene = a.await()
             ocr = b.await()
         }

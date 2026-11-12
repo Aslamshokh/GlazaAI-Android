@@ -153,7 +153,10 @@ class CameraCaptureController(
             if (listener == null || now - lastAnalysisMs < ANALYSIS_INTERVAL_MS) return
             lastAnalysisMs = now
             val plane = image.planes[0]
-            val stats = quality.measure(plane.buffer, image.width, image.height, plane.rowStride, plane.pixelStride)
+            val stats = quality.measure(
+                plane.buffer, image.width, image.height, plane.rowStride, plane.pixelStride,
+                image.imageInfo.rotationDegrees
+            )
             mainHandler.post { qualityListener?.invoke(stats) }
         } catch (e: Exception) {
             // Один плохой кадр не должен ломать камеру.

@@ -3,8 +3,38 @@ package com.aslamshoh.glazaai.util
 import java.nio.ByteBuffer
 import kotlin.math.abs
 
-/** Показатели одного кадра: чёткость, яркость, насколько кадр отличается от прошлого. */
-data class FrameStats(val sharpness: Double, val luma: Double, val motion: Double)
+/** Показатели одного кадра: чёткость, яркость, насколько кадр отличается от прошлого и где
+ * в кадре то, что нужно прочитать ([content] — рамка в долях 0..1 уже в ориентации экрана). */
+data class FrameStats(
+    val sharpness: Double,
+    val luma: Double,
+    val motion: Double,
+    val content: ContentBox? = null
+)
+
+/** Где в кадре текст / купюра / документ: рамка (доли 0..1) и касается ли она краёв кадра. */
+data class ContentBox(
+    val left: Double,
+    val top: Double,
+    val right: Double,
+    val bottom: Double,
+    val cutLeft: Boolean,
+    val cutTop: Boolean,
+    val cutRight: Boolean,
+    val cutBottom: Boolean
+) {
+    val cx: Double get() = (left + right) / 2
+    val cy: Double get() = (top + bottom) / 2
+    val area: Double get() = (right - left) * (bottom - top)
+
+    /** Поворот кадра камеры к ориентации экрана (rotationDegrees из CameraX, по часовой). */
+    fun rotated(deg: Int): ContentBox = when (((deg % 360) + 360) % 360) {
+        90 -> ContentBox(1 - bottom, left, 1 - top, right, cutBottom, cutLeft, cutTop, cutRight)
+        180 -> ContentBox(1 - right, 1 - bottom, 1 - left, 1 - top, cutRight, cutBottom, cutLeft, cutTop)
+        270 -> ContentBox(top, 1 - right, bottom, 1 - left, cutTop, cutRight, cutBottom, cutLeft)
+        else -> this
+    }
+}
 
 /**
  * Оценка кадра по яркостной плоскости (Y) прямо с камеры — без сервера и без создания Bitmap,
@@ -20,8 +50,9 @@ class FrameQuality {
         previous = null
     }
 
-    /** y — плоскость яркости, rowStride — шаг строки в байтах, pixelStride — шаг пикселя (для Y обычно 1). */
-    fun measure(y: ByteBuffer, width: Int, height: Int, rowStride: Int, pixelStride: Int = 1): FrameStats {
+    /** y — плоскость яркости, rowStride — шаг строки в байтах, pixelStride — шаг пикселя (для Y обычно 1),
+     * rotation — rotationDegrees кадра (чтобы «левее/выше» совпадали с тем, как держат телефон). */
+    fun measure(y: ByteBuffer, width: Int, height: Int, rowStride: Int, pixelStride: Int = 1, rotation: Int = 0): FrameStats {
         if (width < 16 || height < 16) return FrameStats(0.0, 0.0, 0.0)
         fun px(x: Int, yy: Int): Int = y.get(yy * rowStride + x * pixelStride).toInt() and 0xFF
 
@@ -71,18 +102,123 @@ class FrameQuality {
             for (k in thumb.indices) d += abs(thumb[k] - prev[k])
             d.toDouble() / thumb.size
         }
-        return FrameStats(sharpness, luma, motion)
+        val content = findContent(::px, width, height)?.rotated(rotation)
+        return FrameStats(sharpness, luma, motion, content)
+    }
+
+    /**
+     * Где в кадре «содержимое» (буквы, цифры, рисунок купюры): сетка 24×18 клеток, в каждой —
+     * средняя сила перепадов яркости. Клетки заметно «живее» фона — содержимое; его рамка и
+     * касание краёв говорят, куда сдвинуть телефон. Пару миллисекунд, без сервера.
+     */
+    private fun findContent(px: (Int, Int) -> Int, width: Int, height: Int): ContentBox? {
+        val gw = 24
+        val gh = 18
+        val cell = DoubleArray(gw * gh)
+        val step = (minOf(width, height) / 180).coerceAtLeast(1)
+        for (j in 0 until gh) {
+            val ya = j * height / gh
+            val yb = ((j + 1) * height / gh).coerceAtMost(height - 1)
+            for (i in 0 until gw) {
+                val xa = i * width / gw
+                val xb = ((i + 1) * width / gw).coerceAtMost(width - 1)
+                var sum = 0L
+                var n = 0
+                var yy = ya
+                while (yy < yb) {
+                    var xx = xa
+                    while (xx < xb) {
+                        sum += abs(px(xx + 1, yy) - px(xx, yy)) + abs(px(xx, yy + 1) - px(xx, yy))
+                        n++
+                        xx += step
+                    }
+                    yy += step
+                }
+                cell[j * gw + i] = if (n == 0) 0.0 else sum.toDouble() / n
+            }
+        }
+        val sorted = cell.sorted()
+        val background = sorted[sorted.size / 4] // спокойная четверть кадра — это фон
+        val peak = sorted[sorted.size * 19 / 20]
+        if (peak < 10.0 || peak < background * 1.8) return null // ровный кадр — содержимого нет
+        val threshold = maxOf(background + (peak - background) * 0.35, 8.0)
+        var minI = gw
+        var maxI = -1
+        var minJ = gh
+        var maxJ = -1
+        var count = 0
+        for (j in 0 until gh) for (i in 0 until gw) {
+            if (cell[j * gw + i] >= threshold) {
+                // одиночная «живая» клетка без соседей — шум, а не текст
+                val neighbours = listOf(i - 1 to j, i + 1 to j, i to j - 1, i to j + 1).count { (a, b) ->
+                    a in 0 until gw && b in 0 until gh && cell[b * gw + a] >= threshold
+                }
+                if (neighbours == 0) continue
+                count++
+                if (i < minI) minI = i
+                if (i > maxI) maxI = i
+                if (j < minJ) minJ = j
+                if (j > maxJ) maxJ = j
+            }
+        }
+        if (count < 4) return null
+        return ContentBox(
+            left = minI.toDouble() / gw,
+            top = minJ.toDouble() / gh,
+            right = (maxI + 1).toDouble() / gw,
+            bottom = (maxJ + 1).toDouble() / gh,
+            cutLeft = minI == 0,
+            cutTop = minJ == 0,
+            cutRight = maxI == gw - 1,
+            cutBottom = maxJ == gh - 1
+        )
+    }
+}
+
+/**
+ * Куда сдвинуть телефон, чтобы текст / чек / купюра целиком попали в кадр и оказались по центру.
+ * «Левее» — значит телефон надо сдвинуть влево (содержимое видно у левого края или уходит за него).
+ * null — с положением всё хорошо.
+ */
+fun framingHint(c: ContentBox?): FrameHint? {
+    if (c == null) return null
+    val cutH = c.cutLeft && c.cutRight
+    val cutV = c.cutTop && c.cutBottom
+    return when {
+        cutH && cutV -> FrameHint.FARTHER
+        cutH -> if (c.cutTop) FrameHint.UP else if (c.cutBottom) FrameHint.DOWN else FrameHint.FARTHER
+        cutV -> if (c.cutLeft) FrameHint.LEFT else if (c.cutRight) FrameHint.RIGHT else FrameHint.FARTHER
+        c.cutLeft -> FrameHint.LEFT
+        c.cutRight -> FrameHint.RIGHT
+        c.cutTop -> FrameHint.UP
+        c.cutBottom -> FrameHint.DOWN
+        c.area < 0.10 -> FrameHint.CLOSER
+        c.cx < 0.36 -> FrameHint.LEFT
+        c.cx > 0.64 -> FrameHint.RIGHT
+        c.cy < 0.36 -> FrameHint.UP
+        c.cy > 0.64 -> FrameHint.DOWN
+        else -> null
     }
 }
 
 /** Что сказать пользователю про текущий кадр. */
 enum class FrameHint(val spoken: String?) {
     DARK("Слишком темно. Включите свет или фонарик."),
-    NO_CONTENT("Не вижу текста. Наведите камеру на надпись."),
+    NO_CONTENT("Ничего не вижу. Наведите камеру на текст, чек или купюру."),
+    LEFT("Левее."),
+    RIGHT("Правее."),
+    UP("Чуть выше."),
+    DOWN("Чуть ниже."),
+    CLOSER("Ближе."),
+    FARTHER("Чуть дальше."),
     BLURRY("Нечётко. Держите телефон ровно и чуть отодвиньте."),
     MOVING("Держите ровно."),
     GOOD(null)
 }
+
+val FrameHint.isFraming: Boolean
+    get() = this == FrameHint.LEFT || this == FrameHint.RIGHT || this == FrameHint.UP ||
+        this == FrameHint.DOWN || this == FrameHint.CLOSER || this == FrameHint.FARTHER
 
 class GateDecision(val hint: FrameHint, val fire: Boolean)
 
@@ -111,8 +247,7 @@ class AutoCaptureGate(
         s.luma < darkLuma -> FrameHint.DARK
         s.sharpness < contentMin -> FrameHint.NO_CONTENT
         s.motion > motionMax -> FrameHint.MOVING
-        s.sharpness < sharpMin -> FrameHint.BLURRY
-        else -> FrameHint.GOOD
+        else -> framingHint(s.content) ?: if (s.sharpness < sharpMin) FrameHint.BLURRY else FrameHint.GOOD
     }
 
     fun update(s: FrameStats, nowMs: Long): GateDecision {
@@ -122,8 +257,9 @@ class AutoCaptureGate(
         } else {
             goodSince = -1L
         }
-        // «Устойчиво, но не резко» — отдельный таймер терпения.
-        if (hint == FrameHint.GOOD || hint == FrameHint.BLURRY) {
+        // «Устойчиво, но не резко / не идеально по центру» — отдельный таймер терпения: подсказка
+        // «левее» может ошибаться на пёстром фоне, и человек не должен ждать вечно.
+        if (hint == FrameHint.GOOD || hint == FrameHint.BLURRY || hint.isFraming) {
             if (steadySince < 0) steadySince = nowMs
         } else {
             steadySince = -1L
@@ -161,8 +297,15 @@ class HintSpeaker(private val repeatMs: Long = 6000, private val firstDelayMs: L
         if (badSince < 0) badSince = nowMs
         val sameAsBefore = lastHint == hint
         lastHint = hint
-        if (nowMs - badSince < firstDelayMs) return null
-        val gap = if (sameAsBefore) repeatMs else 2000L
+        // Подсказки направления («левее», «выше») нужны быстро и чаще — человек двигает телефон по ним.
+        val first = if (hint.isFraming) 900L else firstDelayMs
+        if (nowMs - badSince < first) return null
+        val gap = when {
+            hint.isFraming && sameAsBefore -> 2500L
+            hint.isFraming -> 1200L
+            sameAsBefore -> repeatMs
+            else -> 2000L
+        }
         if (nowMs - lastSpokenAt < gap) return null
         lastSpokenAt = nowMs
         return hint.spoken

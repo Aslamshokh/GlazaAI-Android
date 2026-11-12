@@ -138,6 +138,15 @@ fun SettingsScreen(onBack: () -> Unit = {}) {
             )
         }
 
+        SettingsSection(title = "Описание картинок") {
+            ToggleRow(
+                label = "Для незрячих с рождения",
+                checked = SettingsStore.tactileDescriptions,
+                description = "Картинка — как лист в руках: что вверху, внизу, слева, справа; какой предмет на ощупь, " +
+                    "какого он размера относительно тела, что на чём стоит. Без цвета. Выключено — коротко: что и где."
+            ) { SettingsStore.updateTactileDescriptions(it) }
+        }
+
         SettingsSection(title = "Чтение") {
             Text("Таблицы читать", color = Theme.textPrimary, fontSize = 14.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

@@ -33,6 +33,7 @@ object SettingsStore {
     private const val KEY_TABLE_MODE = "glazaai.tableMode"
     private const val KEY_NEAR_RADIUS = "glazaai.nearRadius"
     private const val KEY_TUTORIAL = "glazaai.tutorialHints"
+    private const val KEY_TACTILE = "glazaai.tactileDescriptions"
     private const val KEY_SEEN_HINTS = "glazaai.seenHints"
 
     var backendBaseUrl by mutableStateOf("")
@@ -75,6 +76,11 @@ object SettingsStore {
     var tutorialHints by mutableStateOf(true)
         private set
 
+    /** Описывать картинки для незрячих с рождения: через осязание, размер относительно тела и
+     * положение «как на листе в руках», без цвета. Выключено — коротко: что и где. */
+    var tactileDescriptions by mutableStateOf(true)
+        private set
+
     private var seenHints: Set<String> = emptySet()
 
     fun init(context: Context) {
@@ -91,6 +97,7 @@ object SettingsStore {
         tableMode = prefs.getString(KEY_TABLE_MODE, "rows") ?: "rows"
         nearRadius = prefs.getFloat(KEY_NEAR_RADIUS, 3f).coerceIn(2f, 5f)
         tutorialHints = prefs.getBoolean(KEY_TUTORIAL, true)
+        tactileDescriptions = prefs.getBoolean(KEY_TACTILE, true)
         seenHints = prefs.getStringSet(KEY_SEEN_HINTS, emptySet())?.toSet() ?: emptySet()
     }
 
@@ -102,6 +109,11 @@ object SettingsStore {
     fun updateNearRadius(value: Float) {
         nearRadius = value.coerceIn(2f, 5f)
         prefs.edit().putFloat(KEY_NEAR_RADIUS, nearRadius).apply()
+    }
+
+    fun updateTactileDescriptions(value: Boolean) {
+        tactileDescriptions = value
+        prefs.edit().putBoolean(KEY_TACTILE, value).apply()
     }
 
     fun updateTutorialHints(value: Boolean) {

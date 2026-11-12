@@ -55,6 +55,7 @@ import com.aslamshoh.glazaai.live.LivePipeline
 import com.aslamshoh.glazaai.nav.VoiceInput
 import com.aslamshoh.glazaai.network.ApiClient
 import com.aslamshoh.glazaai.network.LiveTrack
+import com.aslamshoh.glazaai.network.DescribeService
 import com.aslamshoh.glazaai.network.VisionService
 import com.aslamshoh.glazaai.speech.SpeechSynthesizer
 import com.aslamshoh.glazaai.store.HistoryStore
@@ -481,10 +482,13 @@ private fun describePhoto(
     if (detail) SpeechSynthesizer.speakQueued("Рассматриваю подробно. Подождите несколько секунд.", SettingsStore.speechRate, true)
     scope.launch {
         try {
-            val r = VisionService.describeScene(ImageEncoding.dataUrl(bitmap, maxDimension = if (detail) 1600 else 1280), detail)
-            HistoryStore.addEntry("Предметы", r.title, r.description, bitmap)
-            SpeechSynthesizer.speak(r.description, SettingsStore.speechRate)
-            onResult(PhotoCard(r.title, r.description, bitmap))
+            // «Подробно» (кадр камеры) и фото из галереи — описание для незрячих: через осязание,
+            // размер относительно тела и положение; для кадра камеры — ещё и расстояние шагами.
+            val r = DescribeService.photo(ImageEncoding.dataUrl(bitmap, maxDimension = 1600), fromCamera = detail)
+            val said = r.spoken?.takeIf { it.isNotBlank() } ?: r.description
+            HistoryStore.addEntry("Предметы", r.title, said, bitmap)
+            SpeechSynthesizer.speak(said, SettingsStore.speechRate)
+            onResult(PhotoCard(r.title, said, bitmap))
         } catch (e: Exception) {
             onError(ApiClient.messageFor(e))
         } finally {

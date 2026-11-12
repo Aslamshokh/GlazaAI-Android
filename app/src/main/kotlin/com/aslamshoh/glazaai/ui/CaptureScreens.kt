@@ -70,7 +70,8 @@ private data class ReadOutcome(
     val text: String,
     val description: String,
     val uncertain: Boolean,
-    val doc: DocInfo? = null
+    val doc: DocInfo? = null,
+    val framingHint: String? = null
 )
 
 /** Камера для одиночного снимка (Текст, Валюта) с понятным сообщением вместо чёрного экрана. */
@@ -178,7 +179,7 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                     // Чтение со структурой (списки, скобки, таблицы); со старым сервером — обычный OCR.
                     val outcome = try {
                         val s = ReadService.structured(dataUrl, tableMode, expectTable = false)
-                        ReadOutcome(s.blocks.orEmpty(), s.text.orEmpty().trim(), s.description, s.uncertain, s.document)
+                        ReadOutcome(s.blocks.orEmpty(), s.text.orEmpty().trim(), s.description, s.uncertain, s.document, s.framingHint)
                     } catch (e: ApiException.Server) {
                         if (e.status != 404) throw e
                         val r = OcrService.recognize(dataUrl, SettingsStore.appLanguage)
@@ -194,7 +195,10 @@ fun TextScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                         failedRead++
                         SpeechSynthesizer.speak(message, SettingsStore.speechRate)
                     } else {
-                        uncertainNote = if (uncertain) "Текст распознан неуверенно: возможны ошибки. Для точного чтения снимите ближе и ровнее." else null
+                        uncertainNote = listOfNotNull(
+                            outcome.framingHint,
+                            if (uncertain) "Текст распознан неуверенно: возможны ошибки. Для точного чтения снимите ближе и ровнее." else null
+                        ).joinToString(" ").ifBlank { null }
                         blocks = newBlocks
                         blockIndex = -1
                         doc = outcome.doc
@@ -515,6 +519,7 @@ fun CurrencyScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<CurrencyResult?>(null) }
     var snapshot by remember { mutableStateOf<Bitmap?>(null) }
+    var failedRead by remember { mutableStateOf(0) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -527,10 +532,12 @@ fun CurrencyScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
         if (busy || !hasCamera) return
         error = null
         busy = true
+        SpeechSynthesizer.speakQueued("Смотрю…", SettingsStore.speechRate, true)
         controller.captureFrame { bitmap ->
             if (bitmap == null) {
                 busy = false
                 error = "Не удалось получить кадр с камеры. Попробуйте ещё раз."
+                failedRead++
                 return@captureFrame
             }
             val dataUrl = ImageEncoding.dataUrl(bitmap)
@@ -542,8 +549,11 @@ fun CurrencyScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
                     val headline = if (r.denomination != "неизвестно") r.denomination else r.title
                     HistoryStore.addEntry("Валюта", headline, r.description, bitmap)
                     SpeechSynthesizer.speak(r.description, SettingsStore.speechRate)
+                    if (r.lowConfidenceWarning) failedRead++
                 } catch (e: Exception) {
                     error = ApiClient.messageFor(e)
+                    failedRead++
+                    SpeechSynthesizer.speak(error.orEmpty(), SettingsStore.speechRate)
                 } finally {
                     busy = false
                 }
@@ -553,6 +563,19 @@ fun CurrencyScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
 
     val current = result
     val recognized = current != null && !current.lowConfidenceWarning
+    // Автосъёмка с подсказками «левее / правее / выше / ниже / ближе»: снимает сама,
+    // когда купюра целиком в кадре и неподвижна.
+    val auto = rememberAutoCapture(controller, active = current == null && !busy && hasCamera) { capture() }
+    LaunchedEffect(failedRead) { if (failedRead > 0) auto.needMovement = true }
+    LaunchedEffect(hasCamera) {
+        if (hasCamera) {
+            SpeechSynthesizer.speakQueued(
+                "Положите купюру на ладонь или стол и наведите камеру. Я подскажу: левее, правее, выше, ниже. Сниму сама.",
+                SettingsStore.speechRate,
+                false
+            )
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         CaptureCamera(controller, hasCamera)
@@ -586,10 +609,11 @@ fun CurrencyScreen(onSwitchMode: (ScanMode) -> Unit, onBack: () -> Unit) {
             if (current == null) {
                 GlassSheet {
                     Text(
-                        "Положите купюру на ладонь или ровную поверхность, направьте камеру и нажмите кнопку.",
+                        "Положите купюру на ладонь или ровную поверхность и наведите камеру — подскажу, куда сдвинуть, и сниму сама.",
                         color = Theme.textSecondary,
                         fontSize = 14.sp
                     )
+                    CaptureAssistRow(controller, auto)
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         ShutterButton(isBusy = busy) { capture() }
                     }
