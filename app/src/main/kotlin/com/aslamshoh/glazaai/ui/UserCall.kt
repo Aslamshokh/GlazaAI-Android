@@ -107,6 +107,23 @@ fun UserCall(info: LiveKitInfo, volunteerName: String?, onEnded: (reason: String
     // Волонтёр в звонке? Пока нет — ждём; ушёл — ждём, вдруг просто моргнула связь.
     var volunteerHere by remember { mutableStateOf(false) }
     var leftAt by remember { mutableStateOf(0L) }
+    var everConnected by remember { mutableStateOf(false) }
+    var lostAt by remember { mutableStateOf(0L) }
+
+    suspend fun connectWithRetry(): String? {
+        var last: String? = null
+        for (attempt in 1..3) {
+            try {
+                room.connect(info.url, info.token)
+                return null
+            } catch (e: Exception) {
+                last = e.message ?: e.javaClass.simpleName
+                status = "Не получилось соединиться, пробую ещё…"
+                delay(1500L * attempt)
+            }
+        }
+        return last
+    }
 
     LaunchedEffect(permsOk) {
         if (!permsOk) return@LaunchedEffect
@@ -132,7 +149,12 @@ fun UserCall(info: LiveKitInfo, volunteerName: String?, onEnded: (reason: String
                         status = "Волонтёр отключился, жду 15 секунд…"
                         SpeechSynthesizer.speak("Волонтёр отключился. Подожду, вдруг пропала связь.", SettingsStore.speechRate)
                     }
-                    is RoomEvent.Disconnected -> end("Связь прервалась. Звонок завершён.")
+                    // Обрыв нашей связи: не кладём трубку сразу — сторож ниже переподключится.
+                    is RoomEvent.Disconnected -> if (everConnected && lostAt == 0L) {
+                        lostAt = System.currentTimeMillis()
+                        status = "Связь прервалась, переподключаюсь…"
+                        SpeechSynthesizer.speak("Связь прервалась. Переподключаюсь.", SettingsStore.speechRate)
+                    }
                     is RoomEvent.Reconnecting -> {
                         status = "Связь пропала, восстанавливаю…"
                         SpeechSynthesizer.speak("Связь пропала. Восстанавливаю.", SettingsStore.speechRate)
@@ -152,24 +174,13 @@ fun UserCall(info: LiveKitInfo, volunteerName: String?, onEnded: (reason: String
         }
         // человек держит телефон камерой от себя — нужна задняя камера
         room.videoTrackCaptureDefaults = room.videoTrackCaptureDefaults.copy(position = CameraPosition.BACK)
-        // слабый интернет: две попытки подключиться
-        var connected = false
-        for (attempt in 1..2) {
-            try {
-                room.connect(info.url, info.token)
-                connected = true
-                break
-            } catch (e: Exception) {
-                if (attempt == 1) {
-                    status = "Не получилось с первого раза, пробую ещё…"
-                    delay(1500)
-                }
-            }
-        }
-        if (!connected) {
-            end("Не удалось подключиться к видеозвонку. Проверьте интернет и попробуйте ещё раз.")
+        // слабый интернет: три попытки подключиться
+        val err = connectWithRetry()
+        if (err != null) {
+            end("Не удалось подключиться к видеозвонку. Проверьте интернет и попробуйте ещё раз. ($err)")
             return@LaunchedEffect
         }
+        everConnected = true
         try {
             room.localParticipant.setMicrophoneEnabled(true)
             if (info.publishVideo) room.localParticipant.setCameraEnabled(true)
@@ -196,6 +207,22 @@ fun UserCall(info: LiveKitInfo, volunteerName: String?, onEnded: (reason: String
             delay(1000)
             waited++
             if (!volunteerHere && room.remoteParticipants.isNotEmpty()) volunteerHere = true
+            if (lostAt > 0L) {
+                val again = connectWithRetry()
+                if (again != null) {
+                    end("Связь прервалась. Звонок завершён. ($again)")
+                    return@LaunchedEffect
+                }
+                lostAt = 0L
+                try {
+                    room.localParticipant.setMicrophoneEnabled(!muted)
+                    if (info.publishVideo) room.localParticipant.setCameraEnabled(true)
+                } catch (_: Exception) {
+                }
+                speaker(true)
+                status = if (volunteerHere) "Вы на связи" else "Жду волонтёра…"
+                SpeechSynthesizer.speak("Связь восстановлена.", SettingsStore.speechRate)
+            }
             if (!volunteerHere && leftAt == 0L) {
                 if (waited == 20) SpeechSynthesizer.speak("Волонтёр ещё подключается.", SettingsStore.speechRate)
                 if (waited >= 45) {

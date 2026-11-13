@@ -321,9 +321,11 @@ fun HelpScreen(autoStart: Boolean, onBack: () -> Unit) {
                     // звонок внутри приложения; key — чтобы при новом вызове комната создавалась заново
                     key(p.id) {
                         UserCall(p.lk, p.name) { reason ->
-                            scope.launch { try { HelpService.cancel(p.id, HelpStore.deviceId) } catch (_: Exception) {} }
+                            scope.launch { try { HelpService.cancel(p.id, HelpStore.deviceId, reason) } catch (_: Exception) {} }
                             phase = HelpPhase.Rate(p.id, p.name)
-                            say((reason ?: "Звонок завершён.") + " Оцените помощь: выберите от одного до пяти.")
+                            // техническая причина в скобках — только для сервера, вслух не читаем
+                            val spoken = reason?.substringBefore(" (")?.trim()
+                            say((spoken ?: "Звонок завершён.") + " Оцените помощь: выберите от одного до пяти.")
                         }
                     }
                 } else {

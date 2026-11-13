@@ -31,6 +31,12 @@ object VolunteerRepo {
     private val _call = MutableStateFlow<ActiveCall?>(null)
     val call: StateFlow<ActiveCall?> = _call
 
+    // Защита от гонки: опрос, отправленный ДО «Принять», может вернуться ПОСЛЕ и сказать «вызова нет» —
+    // тогда звонок закрывался через секунду. Закрываем, только если сервер дважды подряд, и не раньше
+    // чем через 10 с после принятия, сказал, что вызова нет.
+    @Volatile private var acceptedAt = 0L
+    @Volatile private var missingPolls = 0
+
     private val _notices = MutableStateFlow<List<AppNotice>>(emptyList())
     val notices: StateFlow<List<AppNotice>> = _notices
 
@@ -119,8 +125,17 @@ object VolunteerRepo {
             val list = r.offers ?: emptyList()
             _offers.value = list
             // Пользователь сам положил трубку — закрываем экран вызова.
-            if (_call.value != null && r.activeRequestId == null) {
+            val c = _call.value
+            if (c != null && r.activeRequestId != c.requestId) {
+                missingPolls++
+            } else {
+                missingPolls = 0
+            }
+            if (c != null && r.activeRequestId == null && missingPolls >= 2 &&
+                System.currentTimeMillis() - acceptedAt > 10_000
+            ) {
                 _call.value = null
+                missingPolls = 0
                 addNotice("done", "Вызов завершён", "Пользователь завершил звонок.")
                 _message.value = "Пользователь завершил звонок."
             }
@@ -136,6 +151,8 @@ object VolunteerRepo {
     suspend fun accept(offer: Offer): AcceptResponse {
         try {
             val a = VolunteerApi.accept(offer.requestId)
+            acceptedAt = System.currentTimeMillis()
+            missingPolls = 0
             _call.value = ActiveCall(a.requestId, a.roomUrl, a.userName, a.language, a.urgent, a.location?.lat, a.location?.lon, a.livekit)
             _offers.value = emptyList()
             return a
@@ -151,17 +168,17 @@ object VolunteerRepo {
         try { VolunteerApi.decline(offer.requestId) } catch (_: ApiError) {}
     }
 
-    suspend fun finishCall() {
+    suspend fun finishCall(reason: String? = null) {
         val c = _call.value ?: return
         _call.value = null
         addNotice("done", "Вызов завершён", "Спасибо за помощь!")
-        try { VolunteerApi.finish(c.requestId) } catch (_: ApiError) {}
+        try { VolunteerApi.finish(c.requestId, reason) } catch (_: ApiError) {}
     }
 
     suspend fun reportAndFinish(reason: String) {
         val c = _call.value ?: return
         try { VolunteerApi.report(c.requestId, reason) } catch (_: ApiError) {}
-        finishCall()
+        finishCall("жалоба: $reason")
     }
 
     fun logout() {

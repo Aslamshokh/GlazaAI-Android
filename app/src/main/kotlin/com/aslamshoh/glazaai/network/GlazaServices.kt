@@ -62,8 +62,9 @@ object HelpService {
     suspend fun status(requestId: Int, deviceId: String): HelpStatus =
         ApiClient.get("/help/requests/$requestId?deviceId=${URLEncoder.encode(deviceId, "UTF-8")}")
 
-    suspend fun cancel(requestId: Int, deviceId: String): HelpStatus =
-        ApiClient.post("/help/requests/$requestId/cancel", HelpDeviceBody(deviceId))
+    /** reason — почему звонок закончился (сервер записывает, чтобы разбирать обрывы связи). */
+    suspend fun cancel(requestId: Int, deviceId: String, reason: String? = null): HelpStatus =
+        ApiClient.post("/help/requests/$requestId/cancel", HelpDeviceBody(deviceId, reason))
 
     suspend fun rate(requestId: Int, deviceId: String, rating: Int, comment: String? = null): HelpOk =
         ApiClient.post("/help/requests/$requestId/rate", HelpRateBody(deviceId, rating, comment))

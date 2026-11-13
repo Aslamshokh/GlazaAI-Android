@@ -185,7 +185,7 @@ data class HelpRequestBody(
     val lat: Double?,
     val lon: Double?
 )
-data class HelpDeviceBody(val deviceId: String)
+data class HelpDeviceBody(val deviceId: String, val reason: String? = null)
 data class HelpRateBody(val deviceId: String, val rating: Int, val comment: String?)
 data class HelpReportBody(val deviceId: String, val reason: String)
 data class HelpOk(val ok: Boolean = true)

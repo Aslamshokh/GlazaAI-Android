@@ -83,7 +83,7 @@ fun CallHost(call: ActiveCall) {
     if (call.livekit != null) {
         LiveCall(call) { reason ->
             scope.launch {
-                VolunteerRepo.finishCall()
+                VolunteerRepo.finishCall(reason)
                 if (reason != null) VolunteerRepo.showMessage(reason)
             }
         }
@@ -160,6 +160,27 @@ private fun LiveCall(call: ActiveCall, onEnded: (reason: String?) -> Unit) {
         while (true) { delay(1000); seconds++ }
     }
 
+    // человек в комнате? ушёл — ждём (вдруг моргнула связь), а не кладём трубку сразу
+    var userHere by remember { mutableStateOf(false) }
+    var userLeftAt by remember { mutableStateOf(0L) }
+    var everConnected by remember { mutableStateOf(false) }
+    var lostAt by remember { mutableStateOf(0L) }
+
+    suspend fun connectWithRetry(): String? {
+        var last: String? = null
+        for (attempt in 1..3) {
+            try {
+                room.connect(info.url, info.token)
+                return null
+            } catch (e: Exception) {
+                last = e.message ?: e.javaClass.simpleName
+                status = "Не получилось соединиться, пробую ещё ($attempt из 3)…"
+                delay(1500L * attempt)
+            }
+        }
+        return last
+    }
+
     LaunchedEffect(permOk) {
         if (!permOk) return@LaunchedEffect
         launch {
@@ -183,23 +204,74 @@ private fun LiveCall(call: ActiveCall, onEnded: (reason: String?) -> Unit) {
                             if (!chatOpen) unread++
                         }
                     }
-                    is RoomEvent.ParticipantDisconnected -> end("Человек завершил звонок.")
-                    is RoomEvent.Disconnected -> end("Связь прервалась. Звонок завершён.")
+                    is RoomEvent.ParticipantConnected -> {
+                        userHere = true
+                        userLeftAt = 0L
+                        if (!hasVideo) status = "Человек на связи, жду видео…"
+                    }
+                    is RoomEvent.ParticipantDisconnected -> if (room.remoteParticipants.isEmpty()) {
+                        userHere = false
+                        userLeftAt = System.currentTimeMillis()
+                        hasVideo = false
+                        status = "Человек пропал со связи, жду 20 секунд…"
+                    }
+                    // Обрыв нашей связи: не завершаем сразу — сторож ниже попробует переподключиться.
+                    is RoomEvent.Disconnected -> if (everConnected && lostAt == 0L) {
+                        lostAt = System.currentTimeMillis()
+                        status = "Связь прервалась, переподключаюсь…"
+                    }
                     is RoomEvent.Reconnecting -> status = "Связь пропала, восстанавливаю…"
                     is RoomEvent.Reconnected -> status = if (hasVideo) "Вы видите камеру человека" else "Жду видео…"
                     else -> {}
                 }
             }
         }
+        val err = connectWithRetry()
+        if (err != null) {
+            end("Не удалось подключиться к видеозвонку ($err). Проверьте интернет.")
+            return@LaunchedEffect
+        }
+        everConnected = true
         try {
-            room.connect(info.url, info.token)
             room.localParticipant.setMicrophoneEnabled(true)
+        } catch (e: Exception) {
+            status = "Микрофон не включился — человек вас не услышит"
+        }
+        try {
             val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             delay(600)
+            @Suppress("DEPRECATION")
             am.isSpeakerphoneOn = true
-            if (!hasVideo) status = "Жду видео от человека…"
-        } catch (e: Exception) {
-            end("Не удалось подключиться к видеозвонку. Проверьте интернет.")
+        } catch (_: Exception) {
+        }
+        if (room.remoteParticipants.isNotEmpty()) userHere = true
+        if (!hasVideo) status = if (userHere) "Человек на связи, жду видео…" else "Жду, когда человек подключится…"
+
+        // сторож звонка
+        var waited = 0
+        while (true) {
+            delay(1000)
+            waited++
+            if (!userHere && room.remoteParticipants.isNotEmpty()) { userHere = true; userLeftAt = 0L }
+            if (lostAt > 0L) {
+                // наша связь оборвалась: одна попытка переподключиться тем же токеном
+                val again = connectWithRetry()
+                if (again != null) {
+                    end("Связь прервалась ($again). Звонок завершён.")
+                    return@LaunchedEffect
+                }
+                lostAt = 0L
+                try { room.localParticipant.setMicrophoneEnabled(!muted) } catch (_: Exception) {}
+                status = if (hasVideo) "Вы видите камеру человека" else "Связь восстановлена, жду видео…"
+            }
+            if (!userHere && userLeftAt == 0L && waited >= 60) {
+                end("Человек не подключился к звонку.")
+                return@LaunchedEffect
+            }
+            if (!userHere && userLeftAt > 0L && System.currentTimeMillis() - userLeftAt > 20_000) {
+                end("Человек завершил звонок или пропала связь.")
+                return@LaunchedEffect
+            }
         }
     }
 

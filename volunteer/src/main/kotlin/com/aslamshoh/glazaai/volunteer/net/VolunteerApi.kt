@@ -18,6 +18,7 @@ private data class OtpBody(val phone: String)
 private data class VerifyBody(val phone: String, val code: String, val name: String? = null, val languages: List<String>? = null)
 private data class OnlineBody(val online: Boolean)
 private data class ReasonBody(val reason: String)
+private data class FinishBody(val reason: String?)
 private object Empty
 
 /** Минимальный клиент к серверу помощи. Все вызовы — suspend, выполняются в IO. */
@@ -93,8 +94,9 @@ object VolunteerApi {
     suspend fun decline(requestId: Int): OkResponse =
         withContext(Dispatchers.IO) { run("POST", "/help/requests/$requestId/decline", null, true, OkResponse::class.java) }
 
-    suspend fun finish(requestId: Int): OkResponse =
-        withContext(Dispatchers.IO) { run("POST", "/help/requests/$requestId/finish", null, true, OkResponse::class.java) }
+    /** reason — почему звонок закончился (сервер записывает, чтобы разбирать обрывы связи). */
+    suspend fun finish(requestId: Int, reason: String? = null): OkResponse =
+        withContext(Dispatchers.IO) { run("POST", "/help/requests/$requestId/finish", FinishBody(reason), true, OkResponse::class.java) }
 
     suspend fun report(requestId: Int, reason: String): OkResponse =
         withContext(Dispatchers.IO) { run("POST", "/help/requests/$requestId/report-by-volunteer", ReasonBody(reason), true, OkResponse::class.java) }
